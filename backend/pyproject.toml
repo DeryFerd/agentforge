@@ -1,0 +1,90 @@
+[project]
+name = "agentforge-backend"
+version = "0.1.0"
+description = "AgentForge - Open-Source Multi-Agent Workflow Orchestrator"
+requires-python = ">=3.12"
+dependencies = [
+    # Web framework
+    "fastapi[standard]>=0.115.0",
+    "uvicorn[standard]>=0.32.0",
+    "python-multipart>=0.0.12",
+
+    # Database
+    "sqlalchemy[asyncio]>=2.0.36",
+    "alembic>=1.14.0",
+    "asyncpg>=0.30.0",
+    "psycopg2-binary>=2.9.10",
+
+    # Cache & Queue
+    "redis[hiredis]>=5.2.0",
+
+    # Validation & Serialization
+    "pydantic>=2.10.0",
+    "pydantic-settings>=2.7.0",
+
+    # Auth
+    "python-jose[cryptography]>=3.3.0",
+    "passlib[bcrypt]>=1.7.4",
+    "bcrypt>=4.2.0",
+    "httpx>=0.28.0",
+
+    # LLM & Agent Framework
+    "langgraph>=0.2.60",
+    "langchain-core>=0.3.25",
+    "langchain-openai>=0.2.12",
+    "langchain-anthropic>=0.3.0",
+    "langchain-google-genai>=2.0.7",
+    "tiktoken>=0.8.0",
+
+    # MCP
+    "mcp>=1.2.0",
+
+    # Observability
+    "opentelemetry-api>=1.28.0",
+    "opentelemetry-sdk>=1.28.0",
+    "opentelemetry-instrumentation-fastapi>=0.49b0",
+    "structlog>=24.4.0",
+
+    # Storage
+    "boto3>=1.35.0",
+
+    # Utils
+    "python-dotenv>=1.0.1",
+    "email-validator>=2.2.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.3.0",
+    "pytest-asyncio>=0.24.0",
+    "pytest-cov>=6.0.0",
+    "httpx>=0.28.0",
+    "ruff>=0.8.0",
+    "mypy>=1.13.0",
+    "pre-commit>=4.0.0",
+    "factory-boy>=3.3.1",
+    "faker>=33.0.0",
+    "aiosqlite>=0.20.0",
+]
+
+[tool.ruff]
+target-version = "py312"
+line-length = 100
+src = ["app"]
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "N", "UP", "B", "A", "SIM", "TCH"]
+ignore = ["E501"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["app"]
+
+[tool.mypy]
+python_version = "3.12"
+strict = true
+plugins = ["pydantic.mypy"]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]
+pythonpath = ["."]
