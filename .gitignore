@@ -36,6 +36,9 @@ out/
 # Docker
 docker-compose.override.yml
 
+# Local-only project notes (not tracked)
+memory.md
+handoff.md
+
 # Misc
 *.log
-.DS_Store
