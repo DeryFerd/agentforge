@@ -11,6 +11,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.api.v1.router import api_v1_router
 from app.core.config import get_settings
 from app.core.rate_limit import RateLimitMiddleware
+from app.core.security_middleware import SecurityHeadersMiddleware
 
 logger = structlog.get_logger()
 settings = get_settings()
@@ -60,8 +61,21 @@ ws_manager = ConnectionManager()
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Application lifespan: startup and shutdown hooks."""
+    # Setup tracing
+    from app.services.tracing import setup_tracing
+    setup_tracing()
+
+    # Setup Langfuse
+    from app.services.langfuse_integration import get_langfuse
+    get_langfuse()
+
     logger.info("AgentForge starting up", version=settings.app_version)
     yield
+
+    # Flush Langfuse
+    from app.services.langfuse_integration import flush as langfuse_flush
+    langfuse_flush()
+
     logger.info("AgentForge shutting down")
 
 
@@ -76,6 +90,9 @@ app = FastAPI(
     docs_url="/docs",
     redoc_url="/redoc",
 )
+
+# Security headers (OWASP)
+app.add_middleware(SecurityHeadersMiddleware)
 
 # Rate limiting
 app.add_middleware(RateLimitMiddleware)
@@ -110,25 +127,51 @@ async def websocket_execution(websocket: WebSocket, run_id: str):
     """WebSocket endpoint for real-time execution event streaming.
 
     Clients connect here to receive live updates as a workflow executes.
-    The execution worker publishes events to Redis pub/sub, and the
-    WebSocket relay (or this endpoint directly) forwards them to clients.
+    Also handles HITL (Human-in-the-Loop) approval responses.
     """
     await ws_manager.connect(websocket, run_id)
     logger.info("WebSocket connected", run_id=run_id)
     try:
         while True:
-            # Keep connection alive; client can send pings or commands
             data = await websocket.receive_text()
             if data == "ping":
                 await websocket.send_text(json.dumps({"type": "pong"}))
+            else:
+                # Handle HITL responses and other commands
+                try:
+                    message = json.loads(data)
+                    msg_type = message.get("type")
+                    if msg_type == "hitl_response":
+                        # Forward HITL response to the execution worker
+                        logger.info(
+                            "HITL response received",
+                            run_id=run_id,
+                            node_id=message.get("node_id"),
+                            decision=message.get("decision"),
+                        )
+                        # The execution worker polls for HITL responses
+                        # Store in Redis for the worker to pick up
+                        import redis.asyncio as aioredis
+                        redis_client = aioredis.from_url(settings.redis_url, decode_responses=True)
+                        await redis_client.set(
+                            f"hitl:{run_id}:{message.get('node_id')}",
+                            json.dumps(message),
+                            ex=86400,  # 24h TTL
+                        )
+                        await redis_client.aclose()
+                        # Notify all connected clients
+                        await ws_manager.send_event(run_id, {
+                            "type": "execution_resumed",
+                            "node_id": message.get("node_id"),
+                            "decision": message.get("decision"),
+                        })
+                except json.JSONDecodeError:
+                    pass
     except WebSocketDisconnect:
         ws_manager.disconnect(websocket, run_id)
         logger.info("WebSocket disconnected", run_id=run_id)
 
 
 async def publish_execution_event(run_id: str, event: dict[str, Any]):
-    """Publish an execution event to all connected WebSocket clients.
-
-    Call this from the execution worker after each node completes.
-    """
+    """Publish an execution event to all connected WebSocket clients."""
     await ws_manager.send_event(run_id, event)
