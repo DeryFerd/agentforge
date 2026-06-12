@@ -1,0 +1,366 @@
+name: data-extractor
+version: "1.0.0"
+description: "Extracts structured data from unstructured text (names, dates, amounts, etc.)"
+category: extraction
+tags: [nlp, extraction, structured-data]
+
+agent_config:
+  model:
+    provider: openai
+    model_id: gpt-4o-mini
+    temperature: 0.1
+  system_prompt: |
+    You are a data extraction agent. Extract structured information from the input text.
+    Output JSON with all identified entities. Include:
+    - "entities": array of {type, value, confidence}
+    - "raw_text": the original input
+    - "extraction_complete": boolean
+
+    Entity types: person, organization, date, amount, email, phone, address, product, location, other
+    If uncertain, set confidence < 0.5. Do not invent entities.
+
+input_schema:
+  type: object
+  required: [text]
+  properties:
+    text: { type: string }
+    entity_types: { type: array, items: { type: string } }
+
+output_schema:
+  type: object
+  properties:
+    entities: { type: array }
+    raw_text: { type: string }
+    extraction_complete: { type: boolean }
+
+customizable_params:
+  - path: agent_config.model.model_id
+    label: Model
+    type: select
+    options: [gpt-4o-mini, gpt-4o, claude-3-5-haiku-20241022]
+    default: gpt-4o-mini
+---
+name: sentiment-analyzer
+version: "1.0.0"
+description: "Analyzes sentiment with confidence scores and emotion detection"
+category: analysis
+tags: [nlp, sentiment, emotion]
+
+agent_config:
+  model:
+    provider: openai
+    model_id: gpt-4o-mini
+    temperature: 0.1
+  system_prompt: |
+    You are a sentiment analysis agent. Analyze the input text and return:
+    - "sentiment": "positive" | "negative" | "neutral" | "mixed"
+    - "confidence": float (0.0-1.0)
+    - "emotions": object with scores for joy, sadness, anger, fear, surprise (each 0.0-1.0)
+    - "key_phrases": array of sentiment-bearing phrases
+    - "summary": one-sentence sentiment summary
+
+    Be precise. Consider sarcasm, irony, and context.
+
+input_schema:
+  type: object
+  required: [text]
+  properties:
+    text: { type: string }
+
+output_schema:
+  type: object
+  properties:
+    sentiment: { type: string }
+    confidence: { type: number }
+    emotions: { type: object }
+    key_phrases: { type: array }
+    summary: { type: string }
+---
+name: translator
+version: "1.0.0"
+description: "Translates text between languages with context awareness"
+category: general
+tags: [nlp, translation, multilingual]
+
+agent_config:
+  model:
+    provider: openai
+    model_id: gpt-4o-mini
+    temperature: 0.2
+  system_prompt: |
+    You are a professional translator. Translate the input text to the target language.
+    Output JSON:
+    - "translated_text": string
+    - "source_language": string (detected or specified)
+    - "target_language": string
+    - "notes": array of translation notes or ambiguities
+
+    Preserve tone, formality level, and technical terminology accuracy.
+
+input_schema:
+  type: object
+  required: [text, target_language]
+  properties:
+    text: { type: string }
+    target_language: { type: string }
+    source_language: { type: string, description: "Optional, auto-detected if omitted" }
+
+output_schema:
+  type: object
+  properties:
+    translated_text: { type: string }
+    source_language: { type: string }
+    target_language: { type: string }
+    notes: { type: array }
+---
+name: code-reviewer
+version: "1.0.0"
+description: "Reviews code for bugs, security issues, performance, and style"
+category: development
+tags: [code, review, security, quality]
+
+agent_config:
+  model:
+    provider: openai
+    model_id: gpt-4o
+    temperature: 0.2
+  system_prompt: |
+    You are a senior code reviewer. Analyze the provided code and return:
+    - "issues": array of {severity: "critical"|"warning"|"info", category, line, description, suggestion}
+    - "summary": overall assessment
+    - "score": integer 1-10
+    - "metrics": {complexity, maintainability, security} each 1-10
+
+    Categories: bug, security, performance, style, best-practice, documentation
+    Be specific with line references and actionable suggestions.
+
+input_schema:
+  type: object
+  required: [code]
+  properties:
+    code: { type: string }
+    language: { type: string }
+    focus_areas: { type: array, items: { type: string } }
+
+output_schema:
+  type: object
+  properties:
+    issues: { type: array }
+    summary: { type: string }
+    score: { type: integer }
+    metrics: { type: object }
+
+customizable_params:
+  - path: agent_config.model.model_id
+    label: Model
+    type: select
+    options: [gpt-4o, gpt-4o-mini, claude-sonnet-4-20250514]
+    default: gpt-4o
+---
+name: content-writer
+version: "1.0.0"
+description: "Generates blog posts, emails, or social media content with tone control"
+category: content
+tags: [writing, content, marketing]
+
+agent_config:
+  model:
+    provider: openai
+    model_id: gpt-4o
+    temperature: 0.7
+  system_prompt: |
+    You are a professional content writer. Generate content based on the provided brief.
+    Output JSON:
+    - "content": the generated content
+    - "title": suggested title (if applicable)
+    - "word_count": integer
+    - "seo_keywords": array (if content_type is blog)
+
+    Adapt tone and format based on content_type. Be engaging, clear, and audience-appropriate.
+
+input_schema:
+  type: object
+  required: [brief, content_type]
+  properties:
+    brief: { type: string }
+    content_type: { type: string, enum: [blog, email, social_post, product_description, press_release] }
+    tone: { type: string, default: "professional" }
+    target_audience: { type: string }
+    max_length: { type: integer }
+
+output_schema:
+  type: object
+  properties:
+    content: { type: string }
+    title: { type: string }
+    word_count: { type: integer }
+    seo_keywords: { type: array }
+
+customizable_params:
+  - path: agent_config.model.temperature
+    label: Creativity
+    type: number
+    min: 0
+    max: 1
+    default: 0.7
+---
+name: qa-answerer
+version: "1.0.0"
+description: "Answers questions based on provided context (RAG-ready)"
+category: qa
+tags: [rag, qa, knowledge-base]
+
+agent_config:
+  model:
+    provider: openai
+    model_id: gpt-4o-mini
+    temperature: 0.1
+  system_prompt: |
+    You are a question-answering agent. Answer the question using ONLY the provided context.
+    Output JSON:
+    - "answer": the answer
+    - "confidence": float (0.0-1.0)
+    - "sources": array of relevant context excerpts used
+    - "unanswerable": boolean (true if context doesn't contain the answer)
+
+    Rules:
+    - Never invent information not in the context
+    - If the answer is partial, say so explicitly
+    - Cite which context pieces support your answer
+
+input_schema:
+  type: object
+  required: [question, context]
+  properties:
+    question: { type: string }
+    context: { type: string, description: "Retrieved context/documents" }
+
+output_schema:
+  type: object
+  properties:
+    answer: { type: string }
+    confidence: { type: number }
+    sources: { type: array }
+    unanswerable: { type: boolean }
+---
+name: json-validator
+version: "1.0.0"
+description: "Validates and fixes JSON output from other agents"
+category: quality
+tags: [validation, json, quality]
+
+agent_config:
+  model:
+    provider: openai
+    model_id: gpt-4o-mini
+    temperature: 0.0
+  system_prompt: |
+    You are a JSON validation and repair agent. Given JSON data and an optional schema:
+    - Validate the JSON structure
+    - Fix common issues (trailing commas, missing quotes, etc.)
+    - Check against schema if provided
+    Output JSON:
+    - "valid": boolean
+    - "fixed_data": the corrected JSON (if fixes were needed)
+    - "errors": array of validation errors found
+    - "fixes_applied": array of fixes made
+
+input_schema:
+  type: object
+  required: [data]
+  properties:
+    data: { description: "JSON data to validate" }
+    schema: { type: object, description: "Optional JSON schema to validate against" }
+
+output_schema:
+  type: object
+  properties:
+    valid: { type: boolean }
+    fixed_data: {}
+    errors: { type: array }
+    fixes_applied: { type: array }
+---
+name: email-drafter
+version: "1.0.0"
+description: "Drafts professional emails from brief descriptions"
+category: content
+tags: [email, writing, business]
+
+agent_config:
+  model:
+    provider: openai
+    model_id: gpt-4o-mini
+    temperature: 0.4
+  system_prompt: |
+    You are a professional email drafter. Given a brief description, draft a complete email.
+    Output JSON:
+    - "subject": email subject line
+    - "body": email body text
+    - "tone": detected/used tone
+    - "alternatives": array of 2 alternative subject lines
+
+    Match the requested tone (formal, casual, urgent, apologetic, etc.).
+    Keep emails concise unless instructed otherwise.
+
+input_schema:
+  type: object
+  required: [purpose]
+  properties:
+    purpose: { type: string }
+    recipient: { type: string }
+    tone: { type: string, default: "professional" }
+    key_points: { type: array, items: { type: string } }
+
+output_schema:
+  type: object
+  properties:
+    subject: { type: string }
+    body: { type: string }
+    tone: { type: string }
+    alternatives: { type: array }
+---
+name: research-synthesizer
+version: "1.0.0"
+description: "Synthesizes multiple research sources into a coherent report"
+category: research
+tags: [research, synthesis, analysis]
+
+agent_config:
+  model:
+    provider: openai
+    model_id: gpt-4o
+    temperature: 0.3
+  system_prompt: |
+    You are a research synthesis agent. Given multiple sources on a topic, produce a synthesis.
+    Output JSON:
+    - "synthesis": the synthesized analysis
+    - "key_findings": array of major findings
+    - "contradictions": array of conflicting information between sources
+    - "confidence": overall confidence in synthesis (0.0-1.0)
+    - "source_count": number of sources analyzed
+
+    Highlight agreements and disagreements between sources. Note gaps in information.
+
+input_schema:
+  type: object
+  required: [topic, sources]
+  properties:
+    topic: { type: string }
+    sources: { type: array, items: { type: object } }
+    focus_areas: { type: array, items: { type: string } }
+
+output_schema:
+  type: object
+  properties:
+    synthesis: { type: string }
+    key_findings: { type: array }
+    contradictions: { type: array }
+    confidence: { type: number }
+    source_count: { type: integer }
+
+customizable_params:
+  - path: agent_config.model.model_id
+    label: Model
+    type: select
+    options: [gpt-4o, claude-sonnet-4-20250514, gemini-2.5-pro]
+    default: gpt-4o

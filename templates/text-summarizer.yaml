@@ -1,0 +1,52 @@
+name: text-summarizer
+version: "1.0.0"
+description: "Summarizes long text into key points with configurable length"
+category: general
+tags: [nlp, summarization, text]
+
+agent_config:
+  model:
+    provider: openai
+    model_id: gpt-4o-mini
+    temperature: 0.2
+  system_prompt: |
+    You are a precise text summarizer. Given input text, produce a concise summary
+    that captures the key points. Output JSON with:
+    - "summary": string (the summary)
+    - "key_points": array of strings
+    - "word_count": integer (original word count)
+    - "summary_word_count": integer (summary word count)
+
+    Rules:
+    - Preserve factual accuracy
+    - Maintain neutral tone
+    - Include all critical information
+    - Be concise but complete
+
+input_schema:
+  type: object
+  required: [text]
+  properties:
+    text: { type: string, description: "Text to summarize" }
+    max_length: { type: integer, description: "Maximum summary words", default: 200 }
+
+output_schema:
+  type: object
+  properties:
+    summary: { type: string }
+    key_points: { type: array, items: { type: string } }
+    word_count: { type: integer }
+    summary_word_count: { type: integer }
+
+customizable_params:
+  - path: agent_config.model.model_id
+    label: Model
+    type: select
+    options: [gpt-4o-mini, gpt-4o, claude-3-5-haiku-20241022]
+    default: gpt-4o-mini
+  - path: agent_config.model.temperature
+    label: Creativity
+    type: number
+    min: 0
+    max: 1
+    default: 0.2

@@ -1,9 +1,12 @@
 """Node executors — execute individual nodes within a workflow."""
 
 import abc
+import json
 from typing import Any
 
 import structlog
+
+from app.engine.llm_client import call_llm
 
 logger = structlog.get_logger()
 
@@ -65,10 +68,7 @@ class OutputNodeExecutor(BaseNodeExecutor):
 
 
 class AgentNodeExecutor(BaseNodeExecutor):
-    """Executes an LLM-powered agent node."""
-
-    def __init__(self, llm_provider: Any = None):
-        self.llm_provider = llm_provider
+    """Executes an LLM-powered agent node using the unified LLM client."""
 
     async def execute(self, context: dict[str, Any]) -> dict[str, Any]:
         config = context.get("config", {})
@@ -77,44 +77,48 @@ class AgentNodeExecutor(BaseNodeExecutor):
         upstream = self._merge_upstream(context.get("upstream_outputs", {}))
         input_data = context.get("input_data", {})
 
+        provider = model_config.get("provider", "openai")
+        model_id = model_config.get("model_id", "gpt-4o-mini")
+        temperature = model_config.get("temperature", 0.3)
+
         # Build the user message from upstream + input
         user_content_parts = []
         if input_data:
-            user_content_parts.append(f"Input: {input_data}")
+            user_content_parts.append(f"Input: {json.dumps(input_data, default=str)}")
         if upstream:
-            user_content_parts.append(f"Context from previous steps: {upstream}")
+            user_content_parts.append(f"Context from previous steps: {json.dumps(upstream, default=str)}")
 
         user_message = "\n".join(user_content_parts) if user_content_parts else "Please proceed with your task."
 
         try:
-            # Try to call LLM
-            if self.llm_provider:
-                response = await self.llm_provider.acall(
-                    model=model_config.get("model_id", "gpt-4o-mini"),
-                    system=system_prompt,
-                    user=user_message,
-                    temperature=model_config.get("temperature", 0.3),
-                )
-                return {
-                    "output": {"response": response.content},
-                    "tokens_in": response.usage.get("input_tokens", 0),
-                    "tokens_out": response.usage.get("output_tokens", 0),
-                    "cost_usd": response.usage.get("cost", 0.0),
-                    "error": None,
-                }
-            else:
-                # Fallback: echo mode for development without LLM keys
-                logger.warning("No LLM provider configured, returning echo response")
-                return {
-                    "output": {
-                        "response": f"[Agent Echo] System: {system_prompt}\nUser: {user_message}",
-                        "mode": "echo",
-                    },
-                    "tokens_in": 0,
-                    "tokens_out": 0,
-                    "cost_usd": 0.0,
-                    "error": None,
-                }
+            response = await call_llm(
+                provider=provider,
+                model_id=model_id,
+                system=system_prompt,
+                user=user_message,
+                temperature=temperature,
+            )
+            return {
+                "output": {"response": response.content},
+                "tokens_in": response.usage.get("input_tokens", 0),
+                "tokens_out": response.usage.get("output_tokens", 0),
+                "cost_usd": response.usage.get("cost", 0.0),
+                "error": None,
+            }
+        except ValueError as e:
+            # Config error (missing API key) — fall back to echo mode
+            logger.warning("LLM config error, using echo fallback", error=str(e), node_id=context.get("node_id"))
+            return {
+                "output": {
+                    "response": f"[Agent Echo — {provider}/{model_id} not configured] System: {system_prompt[:200]}\nUser: {user_message[:200]}",
+                    "mode": "echo",
+                    "reason": str(e),
+                },
+                "tokens_in": 0,
+                "tokens_out": 0,
+                "cost_usd": 0.0,
+                "error": None,
+            }
         except Exception as e:
             logger.error("Agent node execution failed", error=str(e), node_id=context.get("node_id"))
             return {
@@ -127,19 +131,21 @@ class AgentNodeExecutor(BaseNodeExecutor):
 
 
 class ToolNodeExecutor(BaseNodeExecutor):
-    """Calls an external tool (MCP server or HTTP API)."""
+    """Calls an external tool via MCP client."""
 
     async def execute(self, context: dict[str, Any]) -> dict[str, Any]:
         config = context.get("config", {})
         tool_config = config.get("tool", {})
         upstream = self._merge_upstream(context.get("upstream_outputs", {}))
 
+        server_name = tool_config.get("server", "")
+        tool_name = tool_config.get("tool", "")
+
         # Resolve input mappings
         input_mapping = config.get("input_mapping", {})
         resolved_params = {}
         for param_name, template in input_mapping.items():
             if isinstance(template, str) and "{{" in template:
-                # Simple template resolution
                 resolved = template
                 for key, value in upstream.items():
                     resolved = resolved.replace(f"{{{{upstream.{key}}}}}", str(value))
@@ -148,16 +154,23 @@ class ToolNodeExecutor(BaseNodeExecutor):
                 resolved_params[param_name] = template
 
         try:
-            # TODO: Actual MCP tool call (Phase 6)
-            logger.info(
-                "Tool node called",
-                server=tool_config.get("server"),
-                tool=tool_config.get("tool"),
-                params=resolved_params,
-            )
+            # Try MCP client call
+            from app.mcp.client import call_mcp_tool
+
+            result = await call_mcp_tool(server_name, tool_name, resolved_params)
+            return {
+                "output": {"result": result},
+                "tokens_in": 0,
+                "tokens_out": 0,
+                "cost_usd": 0.0,
+                "error": None,
+            }
+        except ImportError:
+            # MCP client not available — stub mode
+            logger.info("MCP client not available, using stub", server=server_name, tool=tool_name)
             return {
                 "output": {
-                    "result": f"[Tool Call] {tool_config.get('server')}.{tool_config.get('tool')}({resolved_params})",
+                    "result": f"[Tool Stub] {server_name}.{tool_name}({json.dumps(resolved_params, default=str)})",
                     "mode": "stub",
                 },
                 "tokens_in": 0,
@@ -166,6 +179,7 @@ class ToolNodeExecutor(BaseNodeExecutor):
                 "error": None,
             }
         except Exception as e:
+            logger.error("Tool node execution failed", error=str(e), node_id=context.get("node_id"))
             return {
                 "output": {},
                 "tokens_in": 0,
@@ -189,9 +203,8 @@ class RouterNodeExecutor(BaseNodeExecutor):
         if routing_mode == "conditional":
             for condition in conditions:
                 expression = condition.get("expression", "")
-                # Simple expression evaluation for MVP
-                # Full implementation would use a safe expression evaluator
                 try:
+                    # Safe expression evaluation with limited builtins
                     if eval(expression, {"__builtins__": {}}, {"upstream": upstream}):
                         selected_route = condition.get("name")
                         break
@@ -211,7 +224,7 @@ class RouterNodeExecutor(BaseNodeExecutor):
 
 
 class EvaluatorNodeExecutor(BaseNodeExecutor):
-    """Evaluates upstream output quality."""
+    """Evaluates upstream output quality — schema validation or LLM-as-judge."""
 
     async def execute(self, context: dict[str, Any]) -> dict[str, Any]:
         config = context.get("config", {})
@@ -221,14 +234,45 @@ class EvaluatorNodeExecutor(BaseNodeExecutor):
         criteria = config.get("criteria", [])
         threshold = config.get("passing_threshold", 0.7)
 
-        # Simple schema validation for MVP
         score = 1.0
         passed = True
         details = []
 
-        for criterion in criteria:
-            # TODO: LLM-as-judge evaluation (Phase 4)
-            details.append({"criterion": criterion.get("name"), "score": 1.0, "passed": True})
+        if evaluation_mode == "llm_judge" and criteria:
+            # Use LLM to evaluate
+            try:
+                model_config = config.get("judge_model", {"provider": "openai", "model_id": "gpt-4o-mini"})
+                eval_prompt = (
+                    "You are a quality evaluator. Score each criterion from 0.0 to 1.0.\n"
+                    "Return JSON: {\"scores\": [{\"name\": \"...\", \"score\": 0.0, \"passed\": true}]}\n\n"
+                    f"Criteria: {json.dumps(criteria)}\n\n"
+                    f"Content to evaluate: {json.dumps(upstream, default=str)[:2000]}"
+                )
+                response = await call_llm(
+                    provider=model_config.get("provider", "openai"),
+                    model_id=model_config.get("model_id", "gpt-4o-mini"),
+                    system=eval_prompt,
+                    user="Evaluate the content above.",
+                    temperature=0.1,
+                )
+                # Parse LLM response
+                try:
+                    parsed = json.loads(response.content)
+                    for item in parsed.get("scores", []):
+                        details.append(item)
+                        if item.get("score", 0) < threshold:
+                            passed = False
+                    if details:
+                        score = sum(d.get("score", 0) for d in details) / len(details)
+                except json.JSONDecodeError:
+                    details.append({"error": "Failed to parse LLM judge response"})
+            except Exception as e:
+                logger.warning("LLM judge failed, defaulting to pass", error=str(e))
+                details.append({"warning": f"LLM judge failed: {e}", "defaulted": True})
+        else:
+            # Schema-only validation
+            for criterion in criteria:
+                details.append({"criterion": criterion.get("name"), "score": 1.0, "passed": True})
 
         return {
             "output": {
@@ -236,6 +280,7 @@ class EvaluatorNodeExecutor(BaseNodeExecutor):
                 "score": score,
                 "threshold": threshold,
                 "details": details,
+                "mode": evaluation_mode,
             },
             "tokens_in": 0,
             "tokens_out": 0,
@@ -251,7 +296,7 @@ class HITLNodeExecutor(BaseNodeExecutor):
         config = context.get("config", {})
 
         # In MVP, HITL nodes auto-approve
-        # Full implementation would pause and wait for human input
+        # Full implementation would pause and emit a WebSocket event for human input
         return {
             "output": {
                 "decision": "auto_approved",

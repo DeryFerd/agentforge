@@ -4,7 +4,7 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { Plus, GitBranch, Play, Settings, ExternalLink, LogIn, LogOut, Trash2, Clock } from "lucide-react";
+import { Plus, GitBranch, Play, Settings, ExternalLink, LogIn, LogOut, Trash2, Clock, Server, Package, DollarSign, Key } from "lucide-react";
 import { useWorkflowStore } from "@/stores/workflow-store";
 import { workflowApi } from "@/lib/api";
 import type { Workflow } from "@/lib/types";
@@ -80,8 +80,15 @@ export default function DashboardPage() {
             </div>
           </div>
           <div className="flex items-center gap-3">
-            <a href="/workspaces" className="text-sm text-gray-500 hover:text-gray-700">
-              Workspaces
+            <a href="/workspaces" className="text-sm text-gray-500 hover:text-gray-700">Workspaces</a>
+            <a href="/templates" className="text-sm text-gray-500 hover:text-gray-700 flex items-center gap-1">
+              <Package size={12} /> Templates
+            </a>
+            <a href="/mcp-servers" className="text-sm text-gray-500 hover:text-gray-700 flex items-center gap-1">
+              <Server size={12} /> MCP
+            </a>
+            <a href="/cost" className="text-sm text-gray-500 hover:text-gray-700 flex items-center gap-1">
+              <DollarSign size={12} /> Costs
             </a>
             <a
               href="http://localhost:8000/docs"
@@ -89,7 +96,7 @@ export default function DashboardPage() {
               rel="noopener noreferrer"
               className="text-sm text-gray-500 hover:text-gray-700 flex items-center gap-1"
             >
-              API Docs <ExternalLink size={12} />
+              API <ExternalLink size={12} />
             </a>
             <a
               href="http://localhost:3001"
@@ -121,7 +128,7 @@ export default function DashboardPage() {
       {/* Main content */}
       <main className="max-w-6xl mx-auto px-6 py-8">
         {/* Stats cards */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
           <div className="bg-white rounded-lg border p-5">
             <p className="text-sm text-gray-500">Workflows</p>
             <p className="text-2xl font-bold text-gray-900 mt-1">{workflows.length}</p>
@@ -132,7 +139,15 @@ export default function DashboardPage() {
           </div>
           <div className="bg-white rounded-lg border p-5">
             <p className="text-sm text-gray-500">Cost (This Month)</p>
-            <p className="text-2xl font-bold text-gray-900 mt-1">—</p>
+            <p className="text-2xl font-bold text-gray-900 mt-1">
+              <a href="/cost" className="hover:text-blue-600">View →</a>
+            </p>
+          </div>
+          <div className="bg-white rounded-lg border p-5">
+            <p className="text-sm text-gray-500">MCP Servers</p>
+            <p className="text-2xl font-bold text-gray-900 mt-1">
+              <a href="/mcp-servers" className="hover:text-purple-600">Manage →</a>
+            </p>
           </div>
         </div>
 
@@ -167,13 +182,22 @@ export default function DashboardPage() {
               Create your first multi-agent workflow. Design agents, connect them with edges,
               and execute them with full observability.
             </p>
-            <button
-              onClick={handleNewWorkflow}
-              className="inline-flex items-center gap-2 px-6 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-medium transition-colors"
-            >
-              <Plus size={16} />
-              Create Your First Workflow
-            </button>
+            <div className="flex gap-3 justify-center">
+              <button
+                onClick={handleNewWorkflow}
+                className="inline-flex items-center gap-2 px-6 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-medium transition-colors"
+              >
+                <Plus size={16} />
+                Create Workflow
+              </button>
+              <a
+                href="/templates"
+                className="inline-flex items-center gap-2 px-6 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-sm font-medium transition-colors"
+              >
+                <Package size={16} />
+                Browse Templates
+              </a>
+            </div>
           </div>
         ) : (
           /* Workflow list */
@@ -200,6 +224,12 @@ export default function DashboardPage() {
                   </div>
                 </button>
                 <div className="flex items-center gap-2 ml-4">
+                  <a
+                    href={`/executions?workflow_id=${wf.id}`}
+                    className="px-3 py-1.5 text-sm bg-gray-50 text-gray-600 hover:bg-gray-100 rounded-md transition-colors"
+                  >
+                    History
+                  </a>
                   <button
                     onClick={() => openWorkflow(wf.id)}
                     className="px-3 py-1.5 text-sm bg-blue-50 text-blue-600 hover:bg-blue-100 rounded-md transition-colors"
@@ -219,7 +249,7 @@ export default function DashboardPage() {
         )}
 
         {/* Quick links */}
-        <div className="mt-8 grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="mt-8 grid grid-cols-1 md:grid-cols-3 gap-4">
           <div className="bg-white rounded-lg border p-5">
             <div className="flex items-center gap-3 mb-3">
               <Play size={18} className="text-green-600" />
@@ -235,14 +265,25 @@ export default function DashboardPage() {
           </div>
           <div className="bg-white rounded-lg border p-5">
             <div className="flex items-center gap-3 mb-3">
+              <Server size={18} className="text-purple-600" />
+              <h3 className="font-medium text-gray-800">Tool Integration</h3>
+            </div>
+            <ul className="text-sm text-gray-600 space-y-2 ml-7 list-disc">
+              <li><a href="/mcp-servers" className="text-purple-600 hover:underline">Register MCP servers</a> for tool access</li>
+              <li>Use Tool nodes in workflows to call MCP tools</li>
+              <li>Supported: stdio (local) and SSE (remote) transports</li>
+            </ul>
+          </div>
+          <div className="bg-white rounded-lg border p-5">
+            <div className="flex items-center gap-3 mb-3">
               <Settings size={18} className="text-gray-600" />
               <h3 className="font-medium text-gray-800">Prerequisites</h3>
             </div>
             <ul className="text-sm text-gray-600 space-y-2 ml-7 list-disc">
-              <li>Backend running at <code className="bg-gray-100 px-1 rounded">localhost:8000</code></li>
+              <li>Backend: <code className="bg-gray-100 px-1 rounded">localhost:8000</code></li>
               <li>PostgreSQL + Redis via Docker Compose</li>
               <li>LLM API key in <code className="bg-gray-100 px-1 rounded">.env</code></li>
-              <li>Database migrated with <code className="bg-gray-100 px-1 rounded">alembic upgrade head</code></li>
+              <li>DB: <code className="bg-gray-100 px-1 rounded">alembic upgrade head</code></li>
             </ul>
           </div>
         </div>

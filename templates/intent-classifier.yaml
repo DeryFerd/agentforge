@@ -1,0 +1,41 @@
+name: intent-classifier
+version: "1.0.0"
+description: "Classifies user intent from text input into predefined categories"
+category: classification
+tags: [nlp, classification, intent]
+
+agent_config:
+  model:
+    provider: openai
+    model_id: gpt-4o-mini
+    temperature: 0.1
+  system_prompt: |
+    You are an intent classifier. Given user input, classify the intent into exactly ONE category.
+    Output JSON with:
+    - "intent": string (the classified intent)
+    - "confidence": float (0.0 to 1.0)
+    - "reasoning": string (brief explanation)
+
+    Default categories: billing, technical_support, sales, general_inquiry, complaint, feedback, other
+    If the input doesn't match any category, use "other".
+
+input_schema:
+  type: object
+  required: [text]
+  properties:
+    text: { type: string }
+    categories: { type: array, items: { type: string }, description: "Override default categories" }
+
+output_schema:
+  type: object
+  properties:
+    intent: { type: string }
+    confidence: { type: number }
+    reasoning: { type: string }
+
+customizable_params:
+  - path: agent_config.model.model_id
+    label: Model
+    type: select
+    options: [gpt-4o-mini, gpt-4o, claude-3-5-haiku-20241022, gemini-2.0-flash]
+    default: gpt-4o-mini
