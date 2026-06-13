@@ -1,6 +1,6 @@
 # AgentForge
 
-**Open-Source Multi-Agent Workflow Orchestrator**
+> Open-Source Multi-Agent Workflow Orchestrator
 
 Design agent workflows visually. Run them reliably. Monitor everything.
 
@@ -45,7 +45,7 @@ AgentForge is a self-hosted platform that enables developers and teams to visual
 
 ```bash
 # 1. Clone the repository
-git clone https://github.com/yourusername/agentforge.git
+git clone https://github.com/DeryFerd/agentforge.git
 cd agentforge
 
 # 2. Copy environment file and add your API keys
@@ -92,7 +92,7 @@ npm run dev
                     └───────────┘       └───────────┘
 ```
 
-See [system-design.md](system-design.md) for the full architecture document.
+See [STRUCTURE.md](STRUCTURE.md) for the complete file-by-file architecture map.
 
 ## Documentation
 
@@ -100,6 +100,7 @@ See [system-design.md](system-design.md) for the full architecture document.
 |---|---|
 | [PRD.md](PRD.md) | Product Requirements Document |
 | [system-design.md](system-design.md) | Technical Architecture |
+| [STRUCTURE.md](STRUCTURE.md) | Complete file structure + connection map |
 | [agents.md](agents.md) | Agent Behavior & Execution Model |
 | [plan.md](plan.md) | Implementation Plan |
 

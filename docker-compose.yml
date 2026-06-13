@@ -1,5 +1,3 @@
-version: "3.9"
-
 services:
   # ─── Backend API ───────────────────────────────────────────
   api:
@@ -44,6 +42,7 @@ services:
     volumes:
       - ./backend:/app
     restart: unless-stopped
+    stop_signal: SIGTERM
 
   # ─── Frontend ──────────────────────────────────────────────
   frontend:

@@ -1,6 +1,11 @@
-"""Pytest configuration and shared fixtures for AgentForge backend tests."""
+"""Pytest configuration and shared fixtures for AgentForge backend tests.
+
+Uses testcontainers-python with real PostgreSQL for accurate testing.
+Falls back to SQLite+aiosqlite for environments without Docker.
+"""
 
 import asyncio
+import os
 from collections.abc import AsyncGenerator
 
 import pytest
@@ -11,8 +16,29 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_asyn
 from app.core.database import Base, get_db
 from app.main import app
 
-# Use SQLite for tests (in-memory, no external dependencies)
-TEST_DATABASE_URL = "sqlite+aiosqlite:///./test.db"
+
+def _get_test_database_url() -> str:
+    """Get test database URL — prefer testcontainers PostgreSQL, fall back to SQLite."""
+    url = os.environ.get("TEST_DATABASE_URL")
+    if url:
+        return url
+
+    # Try testcontainers
+    try:
+        from testcontainers.postgres import PostgresContainer
+
+        pg = PostgresContainer("postgres:16-alpine")
+        pg.start()
+        url = pg.get_connection_url().replace("postgresql://", "postgresql+asyncpg://")
+        # Store for reuse across test modules
+        os.environ["TEST_DATABASE_URL"] = url
+        return url
+    except Exception:
+        # Fallback to SQLite for environments without Docker
+        return "sqlite+aiosqlite:///./test.db"
+
+
+TEST_DATABASE_URL = _get_test_database_url()
 
 engine = create_async_engine(TEST_DATABASE_URL, echo=False)
 TestSessionLocal = async_sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)

@@ -1,9 +1,11 @@
 """AgentForge FastAPI application entry point."""
 
+import asyncio
 import json
 from contextlib import asynccontextmanager
 from typing import Any
 
+import redis.asyncio as aioredis
 import structlog
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
@@ -21,15 +23,78 @@ settings = get_settings()
 
 
 class ConnectionManager:
-    """Simple in-memory WebSocket connection manager for execution events."""
+    """In-memory WebSocket connection manager with Redis pub/sub relay.
+
+    Architecture:
+    - Each execution run_id has a list of connected WebSocket clients
+    - Worker publishes events to Redis channel `agentforge:ws:{run_id}`
+    - This manager subscribes to Redis channels and relays to WebSocket clients
+    - Single shared Redis connection for subscriptions (no per-message leaks)
+    """
 
     def __init__(self):
         self.active_connections: dict[str, list[WebSocket]] = {}
+        self._redis: aioredis.Redis | None = None
+        self._pubsub: aioredis.client.PubSub | None = None
+        self._relay_task: asyncio.Task | None = None
+
+    async def start_relay(self):
+        """Start the Redis pub/sub relay. Call during app lifespan startup."""
+        self._redis = aioredis.from_url(settings.redis_url, decode_responses=True)
+        self._pubsub = self._redis.pubsub()
+        self._relay_task = asyncio.create_task(self._relay_loop())
+        logger.info("WebSocket relay started")
+
+    async def stop_relay(self):
+        """Stop the Redis pub/sub relay. Call during app lifespan shutdown."""
+        if self._relay_task:
+            self._relay_task.cancel()
+            try:
+                await self._relay_task
+            except asyncio.CancelledError:
+                pass
+        if self._pubsub:
+            await self._pubsub.unsubscribe()
+            await self._pubsub.aclose()
+        if self._redis:
+            await self._redis.aclose()
+        logger.info("WebSocket relay stopped")
+
+    async def _relay_loop(self):
+        """Listen to Redis pub/sub and relay messages to WebSocket clients."""
+        try:
+            async for message in self._pubsub.listen():
+                if message["type"] == "message":
+                    channel = message["channel"]
+                    # Channel format: agentforge:ws:{run_id}
+                    if isinstance(channel, str) and channel.startswith("agentforge:ws:"):
+                        run_id = channel.replace("agentforge:ws:", "")
+                        await self._broadcast(run_id, message["data"])
+        except asyncio.CancelledError:
+            pass
+        except Exception as e:
+            logger.error("Relay loop error", error=str(e))
+
+    async def _broadcast(self, run_id: str, data: str):
+        """Send a message to all WebSocket clients for a given run_id."""
+        if run_id not in self.active_connections:
+            return
+        dead = []
+        for conn in self.active_connections[run_id]:
+            try:
+                await conn.send_text(data)
+            except Exception:
+                dead.append(conn)
+        for conn in dead:
+            self.active_connections[run_id].remove(conn)
 
     async def connect(self, websocket: WebSocket, run_id: str):
         await websocket.accept()
         if run_id not in self.active_connections:
             self.active_connections[run_id] = []
+            # Subscribe to Redis channel for this run
+            if self._pubsub:
+                await self._pubsub.subscribe(f"agentforge:ws:{run_id}")
         self.active_connections[run_id].append(websocket)
 
     def disconnect(self, websocket: WebSocket, run_id: str):
@@ -39,17 +104,11 @@ class ConnectionManager:
             ]
             if not self.active_connections[run_id]:
                 del self.active_connections[run_id]
-
-    async def send_event(self, run_id: str, event: dict[str, Any]):
-        if run_id in self.active_connections:
-            dead = []
-            for conn in self.active_connections[run_id]:
-                try:
-                    await conn.send_text(json.dumps(event, default=str))
-                except Exception:
-                    dead.append(conn)
-            for conn in dead:
-                self.active_connections[run_id].remove(conn)
+                # Unsubscribe from Redis channel
+                if self._pubsub:
+                    asyncio.create_task(
+                        self._pubsub.unsubscribe(f"agentforge:ws:{run_id}")
+                    )
 
 
 ws_manager = ConnectionManager()
@@ -69,12 +128,18 @@ async def lifespan(app: FastAPI):
     from app.services.langfuse_integration import get_langfuse
     get_langfuse()
 
+    # Start WebSocket relay (Redis pub/sub)
+    await ws_manager.start_relay()
+
     logger.info("AgentForge starting up", version=settings.app_version)
     yield
 
     # Flush Langfuse
     from app.services.langfuse_integration import flush as langfuse_flush
     langfuse_flush()
+
+    # Stop WebSocket relay
+    await ws_manager.stop_relay()
 
     logger.info("AgentForge shutting down")
 
@@ -127,51 +192,50 @@ async def websocket_execution(websocket: WebSocket, run_id: str):
     """WebSocket endpoint for real-time execution event streaming.
 
     Clients connect here to receive live updates as a workflow executes.
+    Events are relayed from the execution worker via Redis pub/sub.
     Also handles HITL (Human-in-the-Loop) approval responses.
     """
     await ws_manager.connect(websocket, run_id)
     logger.info("WebSocket connected", run_id=run_id)
+
+    # Shared Redis client for HITL responses (created once per connection)
+    redis_client = aioredis.from_url(settings.redis_url, decode_responses=True)
+
     try:
         while True:
             data = await websocket.receive_text()
             if data == "ping":
                 await websocket.send_text(json.dumps({"type": "pong"}))
             else:
-                # Handle HITL responses and other commands
                 try:
                     message = json.loads(data)
                     msg_type = message.get("type")
                     if msg_type == "hitl_response":
-                        # Forward HITL response to the execution worker
                         logger.info(
                             "HITL response received",
                             run_id=run_id,
                             node_id=message.get("node_id"),
                             decision=message.get("decision"),
                         )
-                        # The execution worker polls for HITL responses
                         # Store in Redis for the worker to pick up
-                        import redis.asyncio as aioredis
-                        redis_client = aioredis.from_url(settings.redis_url, decode_responses=True)
                         await redis_client.set(
                             f"hitl:{run_id}:{message.get('node_id')}",
                             json.dumps(message),
-                            ex=86400,  # 24h TTL
+                            ex=86400,
                         )
-                        await redis_client.aclose()
-                        # Notify all connected clients
-                        await ws_manager.send_event(run_id, {
-                            "type": "execution_resumed",
-                            "node_id": message.get("node_id"),
-                            "decision": message.get("decision"),
-                        })
+                        # Publish event via Redis pub/sub (relayed to all clients)
+                        await redis_client.publish(
+                            f"agentforge:ws:{run_id}",
+                            json.dumps({
+                                "type": "execution_resumed",
+                                "node_id": message.get("node_id"),
+                                "decision": message.get("decision"),
+                            }),
+                        )
                 except json.JSONDecodeError:
                     pass
     except WebSocketDisconnect:
         ws_manager.disconnect(websocket, run_id)
         logger.info("WebSocket disconnected", run_id=run_id)
-
-
-async def publish_execution_event(run_id: str, event: dict[str, Any]):
-    """Publish an execution event to all connected WebSocket clients."""
-    await ws_manager.send_event(run_id, event)
+    finally:
+        await redis_client.aclose()

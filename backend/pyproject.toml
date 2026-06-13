@@ -54,6 +54,7 @@ dependencies = [
     "python-dotenv>=1.0.1",
     "email-validator>=2.2.0",
     "pyyaml>=6.0.0",
+    "simpleeval>=1.0.0",
 ]
 
 [project.optional-dependencies]
@@ -68,6 +69,7 @@ dev = [
     "factory-boy>=3.3.1",
     "faker>=33.0.0",
     "aiosqlite>=0.20.0",
+    "testcontainers[postgres]>=4.0.0",
 ]
 
 [tool.ruff]
