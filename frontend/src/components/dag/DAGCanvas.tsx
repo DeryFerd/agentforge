@@ -2,17 +2,20 @@
 
 "use client";
 
-import { useCallback, useMemo } from "react";
+import { useCallback, useEffect, useMemo } from "react";
 import {
   ReactFlow,
   Background,
   Controls,
   MiniMap,
   addEdge,
-  useNodesState,
-  useEdgesState,
   type Connection,
   type Edge,
+  type Node,
+  type OnNodesChange,
+  type OnEdgesChange,
+  applyNodeChanges,
+  applyEdgeChanges,
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
 
@@ -21,47 +24,48 @@ import NodeToolbar from "./NodeToolbar";
 import { useWorkflowStore } from "@/stores/workflow-store";
 
 export default function DAGCanvas() {
-  const storeNodes = useWorkflowStore((s) => s.nodes);
-  const storeEdges = useWorkflowStore((s) => s.edges);
+  const nodes = useWorkflowStore((s) => s.nodes);
+  const edges = useWorkflowStore((s) => s.edges);
   const setStoreNodes = useWorkflowStore((s) => s.setNodes);
   const setStoreEdges = useWorkflowStore((s) => s.setEdges);
   const selectNode = useWorkflowStore((s) => s.selectNode);
 
-  const [nodes, setNodes, onNodesChange] = useNodesState(storeNodes);
-  const [edges, setEdges, onEdgesChange] = useEdgesState(storeEdges);
-
-  // Custom node types
+  // Custom node types — memoized to prevent re-renders
   const nodeTypesMap = useMemo(
     () => ({ agentForgeNode: AgentForgeNode }),
     []
   );
 
-  // Handle new connections (edges)
+  // Handle node changes (drag, select, delete) — apply to Zustand store directly
+  const onNodesChange: OnNodesChange = useCallback(
+    (changes) => {
+      const updatedNodes = applyNodeChanges(changes, nodes);
+      setStoreNodes(updatedNodes);
+    },
+    [nodes, setStoreNodes]
+  );
+
+  // Handle edge changes
+  const onEdgesChange: OnEdgesChange = useCallback(
+    (changes) => {
+      const updatedEdges = applyEdgeChanges(changes, edges);
+      setStoreEdges(updatedEdges);
+    },
+    [edges, setStoreEdges]
+  );
+
+  // Handle new connections (edges between nodes)
   const onConnect = useCallback(
     (connection: Connection) => {
-      setEdges((eds) => addEdge({ ...connection, animated: true }, eds));
-      // Sync back to store
       const newEdges = addEdge({ ...connection, animated: true }, edges);
       setStoreEdges(newEdges as Edge[]);
     },
-    [edges, setEdges, setStoreEdges]
-  );
-
-  // Sync nodes to store on change
-  const handleNodesChange: typeof onNodesChange = useCallback(
-    (changes) => {
-      onNodesChange(changes);
-      // Small delay to let React Flow process changes
-      setTimeout(() => {
-        setStoreNodes(nodes);
-      }, 0);
-    },
-    [nodes, onNodesChange, setStoreNodes]
+    [edges, setStoreEdges]
   );
 
   // Handle node click for selection
   const onNodeClick = useCallback(
-    (_: React.MouseEvent, node: { id: string }) => {
+    (_: React.MouseEvent, node: Node) => {
       selectNode(node.id);
     },
     [selectNode]
@@ -77,7 +81,7 @@ export default function DAGCanvas() {
       <ReactFlow
         nodes={nodes}
         edges={edges}
-        onNodesChange={handleNodesChange}
+        onNodesChange={onNodesChange}
         onEdgesChange={onEdgesChange}
         onConnect={onConnect}
         onNodeClick={onNodeClick}

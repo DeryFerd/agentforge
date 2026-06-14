@@ -186,8 +186,28 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
         set({ isDirty: false, isSaving: false, lastSaveMessage: "Saved!" });
         console.log("Workflow updated:", response.data);
       } else {
-        // Create new workflow
-        const wsId = state.workspaceId || "default"; // Fallback workspace
+        // Create new workflow — resolve workspace ID
+        let wsId = state.workspaceId;
+        if (!wsId && typeof window !== "undefined") {
+          wsId = localStorage.getItem("current_workspace_id");
+        }
+
+        // If still no workspace, auto-create one
+        if (!wsId) {
+          try {
+            const { workspaceApi } = await import("@/lib/api");
+            const wsResponse = await workspaceApi.create("My Workspace");
+            wsId = wsResponse.data.id;
+            if (typeof window !== "undefined") {
+              localStorage.setItem("current_workspace_id", wsId);
+              localStorage.setItem("current_workspace_name", wsResponse.data.name);
+            }
+          } catch {
+            set({ isSaving: false, lastSaveMessage: "Error: Could not create workspace" });
+            return;
+          }
+        }
+
         const response = await workflowApi.create({
           workspace_id: wsId,
           name: state.workflowName,
@@ -205,7 +225,18 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
         console.log("Workflow created:", created);
       }
     } catch (error: unknown) {
-      const msg = error instanceof Error ? error.message : "Save failed";
+      // Extract meaningful error message from axios or generic error
+      let msg = "Save failed";
+      if (error && typeof error === "object") {
+        const axiosErr = error as { response?: { data?: { detail?: string }; status?: number }; message?: string };
+        if (axiosErr.response?.data?.detail) {
+          msg = axiosErr.response.data.detail;
+        } else if (axiosErr.response?.status) {
+          msg = `Server error (${axiosErr.response.status})`;
+        } else if (axiosErr.message) {
+          msg = axiosErr.message;
+        }
+      }
       set({ isSaving: false, lastSaveMessage: `Error: ${msg}` });
       console.error("Save failed:", error);
     }
