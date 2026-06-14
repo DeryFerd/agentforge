@@ -3,7 +3,7 @@
 "use client";
 
 import { useEffect, useCallback, useState } from "react";
-import { useSearchParams } from "next/navigation";
+import { useSearchParams, useRouter } from "next/navigation";
 import dynamic from "next/dynamic";
 import { useWorkflowStore } from "@/stores/workflow-store";
 import { Play, Save, CheckCircle, XCircle, AlertTriangle, Trash2, Loader2, Pencil } from "lucide-react";
@@ -26,9 +26,11 @@ const NodeConfigPanel = dynamic(() => import("@/components/dag/NodeConfigPanel")
 
 export default function EditorPage() {
   const searchParams = useSearchParams();
-  const workflowId = searchParams.get("id");
+  const router = useRouter();
+  const urlWorkflowId = searchParams.get("id");
 
   const {
+    workflowId: storeWorkflowId,
     workflowName,
     isDirty,
     isSaving,
@@ -50,10 +52,17 @@ export default function EditorPage() {
 
   // Load workflow from URL param on mount
   useEffect(() => {
-    if (workflowId) {
-      loadWorkflow(workflowId);
+    if (urlWorkflowId) {
+      loadWorkflow(urlWorkflowId);
     }
-  }, [workflowId, loadWorkflow]);
+  }, [urlWorkflowId, loadWorkflow]);
+
+  // After first save, update URL with the new workflow ID
+  useEffect(() => {
+    if (storeWorkflowId && storeWorkflowId !== urlWorkflowId) {
+      router.replace(`/editor?id=${storeWorkflowId}`);
+    }
+  }, [storeWorkflowId, urlWorkflowId, router]);
 
   // Keep nameInput synced
   useEffect(() => {
@@ -125,14 +134,13 @@ export default function EditorPage() {
 
   // Run handler
   const handleRun = async () => {
-    const { workflowId: wfId } = useWorkflowStore.getState();
-    if (!wfId) {
+    if (!storeWorkflowId) {
       setRunMessage("Save the workflow first before running.");
       return;
     }
     try {
       setRunMessage("Triggering execution...");
-      await executionApi.trigger(wfId, {});
+      await executionApi.trigger(storeWorkflowId, {});
       setRunMessage("Execution queued! Check the history page for results.");
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : "Run failed";
@@ -146,7 +154,7 @@ export default function EditorPage() {
     setIsEditingName(false);
     if (nameInput.trim() && nameInput !== workflowName) {
       setWorkflowMeta(
-        useWorkflowStore.getState().workflowId,
+        storeWorkflowId,
         nameInput.trim(),
         useWorkflowStore.getState().workflowDescription
       );
@@ -202,7 +210,7 @@ export default function EditorPage() {
 
         <div className="flex items-center gap-2">
           <a
-            href={`/executions${workflowId ? `?workflow_id=${workflowId}` : ""}`}
+            href={`/executions${storeWorkflowId ? `?workflow_id=${storeWorkflowId}` : ""}`}
             className="flex items-center gap-1.5 px-3 py-1.5 text-sm rounded-md bg-gray-100 hover:bg-gray-200 text-gray-700 transition-colors"
           >
             History
