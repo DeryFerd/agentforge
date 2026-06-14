@@ -1,6 +1,7 @@
-# AgentForge — Final Architecture & File Structure
+# AgentForge — Architecture & File Structure
 
 > Complete map of the codebase: every file, its purpose, and how it connects to others.
+> Last updated: June 13, 2026 (post-roast-fix session)
 
 ---
 
@@ -31,57 +32,59 @@
 │                          BACKEND (FastAPI)                                   │
 │                          localhost:8000                                      │
 │                                                                              │
-│   ┌─────────────────────────────┐                                           │
-│   │         main.py             │  ← SecurityHeaders + RateLimit + CORS    │
-│   │  lifespan: OTel + Langfuse  │  ← WebSocket: ConnectionManager          │
-│   └──────────────┬──────────────┘                                           │
-│                  │                                                           │
-│   ┌──────────────┴──────────────┐                                           │
-│   │      api/v1/router.py       │  ← 10 sub-routers mounted               │
-│   └──┬───┬───┬───┬───┬───┬──┬──┘                                          │
-│      │   │   │   │   │   │  │                                               │
-│   auth oauth work- flows exec- templates mcp costs webhooks api-keys       │
-│              spaces         utions                                           │
-│      │   │   │   │   │   │  │                                               │
-│      └───┴───┴───┴───┴───┴──┘                                              │
-│                  │                                                           │
-│   ┌──────────────┴──────────────┐                                           │
-│   │    core/ (shared modules)    │                                           │
-│   │  config.py   → settings      │                                           │
-│   │  database.py → DB session    │                                           │
-│   │  deps.py     → auth/RBAC     │                                           │
-│   │  security.py → JWT/bcrypt    │                                           │
-│   │  rate_limit  → middleware    │                                           │
-│   │  security_mw → OWASP headers │                                           │
-│   └──────────────┬──────────────┘                                           │
-│                  │                                                           │
-│   ┌──────────────┴──────────────┐                                           │
-│   │   engine/ (execution core)   │                                           │
-│   │  compiler.py    → DAG→Graph  │                                           │
-│   │  executors.py   → 7 node types│                                          │
-│   │  llm_client.py  → LLM calls  │                                           │
-│   │  validator.py   → DAG checks │                                           │
-│   │  checkpointer   → crash rec. │                                           │
-│   └──────────────┬──────────────┘                                           │
-│                  │                                                           │
-│   ┌──────────────┴──────────────┐                                           │
-│   │    models/ (SQLAlchemy)      │                                           │
-│   │  user, workspace, workflow,  │                                           │
-│   │  execution, misc, api_key,   │                                           │
-│   │  agent_memory                │                                           │
-│   └──────────────┬──────────────┘                                           │
-│                  │                                                           │
-│   ┌──────────────┴──────────────┐     ┌─────────────────────────┐          │
-│   │    services/                 │     │    workers/              │          │
-│   │  budget.py → cost limits    │     │  execution_worker.py    │          │
-│   │  tracing.py → OTel spans    │     │  Redis BLPOP → compile  │          │
-│   │  langfuse  → LLM traces     │     │  → execute → persist    │          │
-│   │  webhook_d → HMAC delivery  │     └─────────────────────────┘          │
-│   └─────────────────────────────┘                                           │
+│   ┌─────────────────────────────────────────────┐                           │
+│   │                main.py                       │                           │
+│   │  SecurityHeaders + RateLimit + CORS          │                           │
+│   │  lifespan: OTel setup + Langfuse init        │                           │
+│   │  WebSocket: ConnectionManager (Redis pub/sub │ ← single shared conn    │
+│   │              relay, no per-message leaks)     │   (roast fix)           │
+│   └──────────────────────┬──────────────────────┘                           │
+│                          │                                                   │
+│   ┌──────────────────────┴──────────────────────┐                           │
+│   │           api/v1/router.py                  │  ← 10 sub-routers         │
+│   └──┬───┬───┬───┬───┬───┬──┬──┬──┬──┘                                  │
+│      │   │   │   │   │   │  │  │  │                                       │
+│   auth oauth work- flows exec- templates mcp costs webhooks api-keys      │
+│              spaces         utions                                          │
+│      │   │   │   │   │   │  │  │  │                                       │
+│      └───┴───┴───┴───┴───┴──┴──┴──┘                                      │
+│                          │                                                   │
+│   ┌──────────────────────┴──────────────────────┐                           │
+│   │         core/ (shared modules)               │                           │
+│   │  config.py        → settings                 │                           │
+│   │  database.py      → DB session               │                           │
+│   │  deps.py          → auth/RBAC                │                           │
+│   │  security.py      → JWT/bcrypt               │                           │
+│   │  rate_limit.py    → middleware                │                           │
+│   │  security_mw.py   → OWASP headers + sanitizer│                           │
+│   └──────────────────────┬──────────────────────┘                           │
+│                          │                                                   │
+│   ┌──────────────────────┴──────────────────────┐                           │
+│   │       engine/ (execution core)               │                           │
+│   │  compiler.py    → DAG→LangGraph StateGraph   │                           │
+│   │  executors.py   → 7 executors w/ OTel spans │ ← simpleeval (roast fix) │
+│   │  llm_client.py  → LLM calls + cost calc      │   + real HITL (roast fix)│
+│   │  validator.py   → DAG checks                 │                           │
+│   │  checkpointer   → crash recovery              │                           │
+│   └──────────────────────┬──────────────────────┘                           │
+│                          │                                                   │
+│   ┌──────────────────────┴──────────────────────┐     ┌───────────────┐    │
+│   │         models/ (SQLAlchemy)                 │     │  workers/      │    │
+│   │  user, workspace, workflow, execution,       │     │ execution_     │    │
+│   │  misc, api_key, agent_memory                 │     │ worker.py      │    │
+│   └──────────────────────┬──────────────────────┘     │ OTel spans +   │    │
+│                          │                              │ Langfuse +     │    │
+│   ┌──────────────────────┴──────────────────────┐     │ budget check + │    │
+│   │         services/                            │     │ WebSocket emit │    │
+│   │  budget.py       → cost limits               │     └───────────────┘    │
+│   │  tracing.py      → OTel spans (NOW WIRED)   │                           │
+│   │  langfuse_int.py → LLM traces (NOW WIRED)   │                           │
+│   │  webhook_d.py    → HMAC delivery             │                           │
+│   └──────────────────────────────────────────────┘                           │
 │                                                                              │
-│   ┌─────────────────────────────┐                                           │
-│   │    mcp/client.py            │  ← MCP stdio + SSE tool calls            │
-│   └─────────────────────────────┘                                           │
+│   ┌──────────────────────────────────────────────┐                          │
+│   │          mcp/client.py                       │  ← MCP stdio + SSE       │
+│   └──────────────────────────────────────────────┘                          │
 └──────────────────────────────────┬──────────────────────────────────────────┘
                                    │
               ┌────────────────────┼────────────────────┐
@@ -89,10 +92,10 @@
 ┌─────────────┴─────┐ ┌───────────┴──────┐ ┌──────────┴──────────┐
 │   PostgreSQL       │ │     Redis        │ │     MinIO (S3)      │
 │   :5432            │ │     :6379        │ │     :9000           │
-│   13 tables        │ │   task queue     │ │   file storage      │
-│   (via Alembic)    │ │   HITL store     │ │                     │
-└────────────────────┘ └──────────────────┘ └─────────────────────┘
-                                                        │
+│   14 tables        │ │   task queue     │ │   file storage      │
+│   (via Alembic)    │ │   HITL polling   │ │                     │
+└────────────────────┘ │   pub/sub relay  │ └─────────────────────┘
+                       └──────────────────┘            │
                                               ┌─────────┴──────────┐
                                               │  Langfuse           │
                                               │  :3001              │
@@ -108,20 +111,34 @@
 
 | File | Purpose | Connects To |
 |---|---|---|
-| `docker-compose.yml` | Orchestrates 7 Docker services | All backend/frontend/infra services |
+| `docker-compose.yml` | Orchestrates 7 Docker services (no deprecated `version` field) | All backend/frontend/infra |
 | `.env.example` | Environment variable template | `config.py`, `docker-compose.yml` |
 | `.gitignore` | Git ignore rules | — |
-| `README.md` | Project overview + quickstart | All docs |
+| `.dockerignore` | Excludes node_modules, .git, tests from Docker builds | Docker build context |
+| `README.md` | Project overview + quickstart (clone URL fixed to `DeryFerd`) | All docs |
 | `LICENSE` | Apache 2.0 | — |
 | `CONTRIBUTING.md` | Contributor guide | — |
+| `STRUCTURE.md` | Architecture map (this file) | All files |
 | `PRD.md` | Product requirements | `system-design.md`, `plan.md` |
-| `system-design.md` | Technical architecture | `STRUCTURE.md` (this file) |
+| `system-design.md` | Technical architecture | `STRUCTURE.md` |
 | `agents.md` | Agent behavior spec | `executors.py`, `templates/*.yaml` |
 | `plan.md` | Implementation plan (8 phases) | `progress.md` |
 | `progress.md` | Task tracker (live) | `plan.md` |
-| `memory.md` | Session journal (local-only) | — |
-| `handoff.md` | Handoff notes (local-only) | — |
+| `memory.md` | Session journal (local-only, gitignored) | — |
+| `handoff.md` | Handoff notes (local-only, gitignored) | — |
+| `ROAST_REVIEW.md` | Senior reviewer's technical roast | `ROAST_REVIEW_FIXED.md` |
+| `ROAST_REVIEW_FIXED.md` | Remediation report mapping each roast issue to its fix | `ROAST_REVIEW.md` |
 | `RESEARCH-*.md` | Market research + job analysis | `PRD.md` |
+
+### Docs — `docs/adrs/`
+
+| File | Decision |
+|---|---|
+| `ADR-001-langgraph-over-crewai.md` | Why LangGraph over CrewAI/AutoGen for orchestration engine |
+| `ADR-002-postgresql-checkpointing.md` | Why PostgreSQL checkpointing over Redis for workflow state |
+| `ADR-003-react-flow-for-dag-editor.md` | Why React Flow over custom canvas for DAG editor |
+| `ADR-004-simpleeval-over-eval.md` | Why simpleeval replaced eval() — security vulnerability |
+| `ADR-005-fastapi-async-over-django.md` | Why FastAPI + async over Django/DRF for API layer |
 
 ### Backend — `backend/`
 
@@ -129,20 +146,21 @@
 
 | File | Purpose | Imports / Uses | Used By |
 |---|---|---|---|
-| `app/main.py` | FastAPI app, middleware, WebSocket, lifespan | `config.py`, `rate_limit.py`, `security_middleware.py`, `router.py`, `tracing.py`, `langfuse_integration.py` | Uvicorn, Docker |
+| `app/main.py` | FastAPI app, middleware stack, WebSocket with Redis pub/sub relay (roast fix: no connection leak), lifespan with OTel + Langfuse init | `config.py`, `rate_limit.py`, `security_middleware.py`, `router.py`, `tracing.py`, `langfuse_integration.py`, `redis.asyncio` | Uvicorn, Docker |
 | `Dockerfile` | Python 3.12 image for API + Worker | `pyproject.toml` | `docker-compose.yml` |
-| `pyproject.toml` | Dependencies + tool config | — | `pip install` |
+| `.dockerignore` | Excludes __pycache__, .git, tests, *.md from build | Docker build | — |
+| `pyproject.toml` | Dependencies + tool config. **New deps:** `simpleeval>=1.0.0`, `testcontainers[postgres]>=4.0.0` | — | `pip install` |
 
 #### Core — `backend/app/core/`
 
 | File | Purpose | Imports / Uses | Used By |
 |---|---|---|---|
-| `config.py` | `Settings` class (pydantic-settings), `get_settings()` | `.env` file | Every module that needs config |
-| `database.py` | Async SQLAlchemy engine, `Base`, `get_db()` dependency | `config.py` (DATABASE_URL) | All API routers, models, Alembic |
+| `config.py` | `Settings` class (pydantic-settings), `get_settings()` | `.env` file | Every module |
+| `database.py` | Async SQLAlchemy engine, `Base`, `get_db()` dependency | `config.py` (DATABASE_URL) | All routers, models, Alembic |
 | `deps.py` | `get_current_user`, `RequireRole`, `log_audit()` | `security.py`, `database.py`, `user.py`, `workspace.py` | All auth-protected endpoints |
 | `security.py` | `hash_password()`, `verify_password()`, `create_access_token()`, `create_refresh_token()`, `decode_token()` | `config.py` (JWT settings) | `auth.py`, `deps.py`, `oauth.py` |
-| `rate_limit.py` | `RateLimitMiddleware` — per-IP, API key bypass | `config.py` | `main.py` (added as middleware) |
-| `security_middleware.py` | `SecurityHeadersMiddleware` (OWASP), `InputSanitizer`, `validate_dag_structure()` | — | `main.py`, `workflows.py` |
+| `rate_limit.py` | `RateLimitMiddleware` — per-IP, API key bypass | `config.py` | `main.py` |
+| `security_middleware.py` | `SecurityHeadersMiddleware` (OWASP: X-Frame-Options, nosniff, CSP), `InputSanitizer`, `validate_dag_structure()` | — | `main.py`, `workflows.py` |
 
 #### API Routers — `backend/app/api/v1/`
 
@@ -152,7 +170,7 @@
 | `auth.py` | `/auth` | POST register, login, refresh; GET /me | `user.User` | `deps.py`, `security.py`, `database.py` |
 | `oauth.py` | `/auth/oauth` | GET/POST github/*, google/* | `user.User`, `workspace.*` | `security.py`, `database.py`, `config.py` |
 | `workspaces.py` | `/workspaces` | CRUD + member invite/list | `workspace.*` | `deps.py`, `database.py` |
-| `workflows.py` | `/workflows` | CRUD + validate + export + import | `workflow.*` | `deps.py`, `database.py`, `validator.py` |
+| `workflows.py` | `/workflows` | CRUD + validate + export + import | `workflow.*` | `deps.py`, `database.py`, `validator.py`, `security_middleware.py` |
 | `executions.py` | `/executions` | trigger, list, get, trace, cancel | `execution.*`, `workflow.*` | `deps.py`, `database.py`, Redis |
 | `templates.py` | `/templates` | CRUD + search | `misc.AgentTemplate` | `deps.py`, `database.py` |
 | `mcp_servers.py` | `/mcp-servers` | register, list, delete, health | `misc.MCPServer` | `deps.py`, `database.py` |
@@ -165,10 +183,10 @@
 | File | Purpose | Imports / Uses | Used By |
 |---|---|---|---|
 | `compiler.py` | `WorkflowCompiler` — transforms DAG JSON → LangGraph `StateGraph` | `langgraph` | `execution_worker.py` |
-| `executors.py` | 7 node executors: Input, Output, Agent, Tool, Router, Evaluator, HITL | `llm_client.py`, `mcp/client.py` | `compiler.py` (via `get_default_executors()`) |
-| `llm_client.py` | `call_llm()` — unified OpenAI/Anthropic/Google client with cost calc | `langchain_openai`, `langchain_anthropic`, `langchain_google_genai`, `config.py` | `executors.py` (AgentNodeExecutor) |
-| `validator.py` | `DAGValidator` — cycle detection (Kahn's), orphan nodes, type/config checks | — | `workflows.py` (validate endpoint) |
-| `checkpointer.py` | `get_checkpointer()` — PostgreSQL checkpointer for LangGraph | `langgraph.checkpoint.postgres`, `config.py` | `execution_worker.py` |
+| `executors.py` | 7 node executors with **OTel spans** (`_wrap_with_span()`), **simpleeval** routing (no `eval()`), **real HITL** (Redis polling), **evaluator cost tracking** | `llm_client.py`, `mcp/client.py`, `simpleeval`, `services/tracing.py`, `redis.asyncio` | `compiler.py` (via `get_default_executors()`) |
+| `llm_client.py` | `call_llm()` — unified OpenAI/Anthropic/Google client with per-model cost calculation | `langchain_openai`, `langchain_anthropic`, `langchain_google_genai`, `config.py` | `executors.py` (AgentNodeExecutor, EvaluatorNodeExecutor) |
+| `validator.py` | `DAGValidator` — cycle detection (Kahn's algorithm), orphan nodes, type/config checks | — | `workflows.py` (validate endpoint) |
+| `checkpointer.py` | `get_checkpointer()` — PostgreSQL checkpointer for LangGraph crash recovery | `langgraph.checkpoint.postgres`, `config.py` | `execution_worker.py` |
 
 #### Models — `backend/app/models/`
 
@@ -187,15 +205,15 @@
 | File | Purpose | Used By |
 |---|---|---|
 | `budget.py` | `check_budget()`, `check_node_budget()`, `BudgetExceededError` | `execution_worker.py`, `executions.py` |
-| `tracing.py` | `setup_tracing()`, span helpers (workflow, node, LLM, MCP) | `main.py` (lifespan), `execution_worker.py` |
-| `langfuse_integration.py` | `get_langfuse()`, `trace_workflow()`, `trace_node()`, `get_langfuse_handler()`, `flush()` | `main.py` (lifespan), `execution_worker.py` |
-| `webhook_delivery.py` | `deliver_webhook()` (HMAC-SHA256 + 3x retry), `verify_webhook_signature()` | `execution_worker.py`, `webhooks.py` |
+| `tracing.py` | `setup_tracing()`, `get_tracer()`, span helpers (`span_workflow_execution`, `span_node_execution`, `span_llm_call`, `span_mcp_call`) — **NOW WIRED into executors + worker** | `main.py` (lifespan), `execution_worker.py`, `executors.py` |
+| `langfuse_integration.py` | `get_langfuse()`, `trace_workflow()`, `trace_node()`, `get_langfuse_handler()`, `flush()` — **NOW WIRED into worker** | `main.py` (lifespan), `execution_worker.py` |
+| `webhook_delivery.py` | `deliver_webhook()` (HMAC-SHA256 + 3x retry with backoff), `verify_webhook_signature()` | `execution_worker.py`, `webhooks.py` |
 
 #### Workers — `backend/app/workers/`
 
 | File | Purpose | Uses |
 |---|---|---|
-| `execution_worker.py` | Redis BLPOP loop → load workflow → compile (LangGraph) → execute nodes → persist results + cost records + Langfuse traces | `compiler.py`, `executors.py`, `checkpointer.py`, `database.py`, `tracing.py`, `langfuse_integration.py`, `budget.py`, `webhook_delivery.py` |
+| `execution_worker.py` | Redis BLPOP loop → budget check → compile (LangGraph) → execute nodes with **OTel spans** → persist results + cost records + **Langfuse traces** → **WebSocket events via Redis pub/sub** → graceful shutdown (SIGTERM) | `compiler.py`, `executors.py`, `checkpointer.py`, `database.py`, `tracing.py`, `langfuse_integration.py`, `budget.py`, `webhook_delivery.py`, `redis.asyncio` |
 
 #### MCP — `backend/app/mcp/`
 
@@ -216,10 +234,11 @@
 
 | File | Tests | Covers |
 |---|---|---|
-| `conftest.py` | Fixtures: async SQLite DB, test client | All tests |
+| `conftest.py` | Fixtures: **testcontainers-postgres** with SQLite fallback, async DB, test client | All tests (roast fix: no more SQLite-only divergence) |
 | `test_auth.py` | 14 tests | Register, login, /me, refresh, health |
-| `test_validator.py` | 25+ tests | Cycle detection, orphan nodes, types, edges, config warnings |
-| `test_workflows.py` | Integration tests | CRUD, validation, export/import, auth required |
+| `test_validator.py` | 25+ tests | Cycle detection, orphan nodes, types, edges, config warnings, result structure |
+| `test_workflows.py` | 11 integration tests | CRUD, validation, export/import, auth required |
+| `test_engine.py` | **25+ tests (NEW)** | Compiler (linear/branching/router/invalid), all 7 executors with mocked LLM, full pipeline e2e, **safeeval security** (`test_safeeval_blocks_malicious_expression`), HITL Redis polling, evaluator cost tracking |
 
 ---
 
@@ -229,22 +248,22 @@
 
 | File | Route | Purpose | Uses |
 |---|---|---|---|
-| `layout.tsx` | (all) | Root layout, metadata, dark mode script, ErrorBoundary wrapper | `ErrorBoundaryWrapper.tsx` |
+| `layout.tsx` | (all) | Root layout, metadata, dark mode flash-prevention script, ErrorBoundary wrapper | `ErrorBoundaryWrapper.tsx` |
 | `page.tsx` | `/` | Dashboard — workflow list, stats, nav links to all pages | `api.ts`, `workflow-store.ts`, `types.ts` |
-| `editor/page.tsx` | `/editor[?id=]` | DAG editor — canvas, toolbar, config panel, save/run/validate | `DAGCanvas`, `NodeToolbar`, `NodeConfigPanel`, `workflow-store.ts`, `executionApi` |
+| `editor/page.tsx` | `/editor[?id=]` | DAG editor — canvas, toolbar, config panel, save/run/validate, version history | `DAGCanvas`, `NodeToolbar`, `NodeConfigPanel`, `VersionHistory`, `workflow-store.ts` |
 | `login/page.tsx` | `/login` | Login/register form, JWT stored in localStorage | `authApi` |
 | `workspaces/page.tsx` | `/workspaces` | Create/select workspace, stored in localStorage | `workspaceApi` |
 | `executions/page.tsx` | `/executions[?workflow_id=]` | Execution history with expandable per-node trace | `executionApi` |
 | `templates/page.tsx` | `/templates` | Template marketplace — search, category filter, install | `api.ts` |
 | `mcp-servers/page.tsx` | `/mcp-servers` | MCP server management — register, health check, delete | `api.ts` |
-| `cost/page.tsx` | `/cost` | Cost dashboard — model breakdown, pricing reference | `api.ts` |
+| `cost/page.tsx` | `/cost` | Cost dashboard — model breakdown bar chart, pricing reference | `api.ts` |
 | `globals.css` | (all) | Tailwind CSS imports + custom styles | `layout.tsx` |
 
 #### Components — `frontend/src/components/`
 
 | File | Purpose | Used By |
 |---|---|---|
-| `ErrorBoundary.tsx` | React class component — catches render errors, retry/home buttons | `ErrorBoundaryWrapper.tsx` |
+| `ErrorBoundary.tsx` | React class component — catches render errors, retry/home buttons, dev stack trace | `ErrorBoundaryWrapper.tsx` |
 | `ErrorBoundaryWrapper.tsx` | Server-component wrapper for ErrorBoundary | `layout.tsx` |
 | `DarkModeToggle.tsx` | Sun/Moon toggle with localStorage persistence | Header (any page) |
 
@@ -255,7 +274,7 @@
 | `DAGCanvas.tsx` | React Flow canvas with custom nodes, minimap, controls, snap-to-grid | `editor/page.tsx` |
 | `AgentForgeNode.tsx` | Custom React Flow node — 7 types with color + icon | `DAGCanvas.tsx` |
 | `NodeToolbar.tsx` | Sidebar to add nodes (Agent, Tool, Router, Evaluator, HITL, Input, Output) | `DAGCanvas.tsx` |
-| `NodeConfigPanel.tsx` | Right sidebar — per-type config forms (prompt, model, temperature, etc.) | `editor/page.tsx` |
+| `NodeConfigPanel.tsx` | Right sidebar — per-type config forms (prompt, model, temperature, routing mode, etc.) | `editor/page.tsx` |
 | `VersionHistory.tsx` | Expandable version list with restore button | `editor/page.tsx` |
 
 #### Lib — `frontend/src/lib/`
@@ -264,13 +283,13 @@
 |---|---|---|
 | `api.ts` | Axios client with JWT interceptors + 401 redirect. Exports: `authApi`, `workflowApi`, `executionApi`, `workspaceApi` | All pages, `workflow-store.ts` |
 | `types.ts` | TypeScript interfaces: `User`, `Workspace`, `Workflow`, `DAGNode`, `DAGEdge`, `Execution`, `ValidationResult`, `TokenResponse` | All pages, store, API client |
-| `useExecutionWebSocket.ts` | React hook — WebSocket connection, auto-reconnect, HITL approval sender | `editor/page.tsx`, `executions/page.tsx` |
+| `useExecutionWebSocket.ts` | React hook — WebSocket connection, auto-reconnect, ping/pong, HITL approval sender | `editor/page.tsx`, `executions/page.tsx` |
 
 #### State — `frontend/src/stores/`
 
 | File | Purpose | Used By |
 |---|---|---|
-| `workflow-store.ts` | Zustand store — DAG state, save/load/buildDagJson, workspace context | `editor/page.tsx`, `page.tsx` (dashboard) |
+| `workflow-store.ts` | Zustand store — DAG state, `saveWorkflow()`/`loadWorkflow()` async API actions, `buildDagJson()`, workspace context | `editor/page.tsx`, `page.tsx` (dashboard) |
 
 #### Tests — `frontend/tests/`
 
@@ -282,6 +301,7 @@
 
 | File | Purpose |
 |---|---|
+| `.dockerignore` | Excludes node_modules, .next, .git, tests from Docker build |
 | `playwright.config.ts` | Playwright E2E config — Chromium, auto-start dev server |
 | `tsconfig.json` | TypeScript config with `@/*` path alias |
 | `eslint.config.mjs` | ESLint with next/core-web-vitals |
@@ -304,7 +324,7 @@
 
 | File | Purpose |
 |---|---|
-| `workflows/ci.yml` | GitHub Actions — backend (lint + type-check + test with PostgreSQL), frontend (lint + type-check + build) |
+| `workflows/ci.yml` | GitHub Actions — backend (lint + type-check + test with PostgreSQL service), frontend (lint + type-check + build) |
 
 ---
 
@@ -350,20 +370,25 @@
    → POST /api/v1/executions/workflows/{id}/execute
    → executions.py creates Execution record, enqueues to Redis
 
-9. Worker picks up job
-   → workers/execution_worker.py:
-     a. Loads Workflow from PostgreSQL
-     b. Calls engine/compiler.py (WorkflowCompiler.compile())
-     c. LangGraph StateGraph executes nodes via engine/executors.py
-     d. AgentNodeExecutor calls engine/llm_client.py (call_llm())
-     e. ToolNodeExecutor calls mcp/client.py (call_mcp_tool())
-     f. Budget checked via services/budget.py
-     g. Results persisted to Execution + ExecutionNode + CostRecord
-     h. Traces sent to services/tracing.py + services/langfuse_integration.py
+9. Worker picks up job (execution_worker.py)
+   a. Budget check via services/budget.py
+   b. Loads Workflow from PostgreSQL
+   c. Opens OTel span: span_workflow_execution()
+   d. Compiles DAG → LangGraph StateGraph via engine/compiler.py
+   e. Each node executes with OTel span: span_node_execution()
+      - AgentNodeExecutor: span_llm_call() → engine/llm_client.py
+      - ToolNodeExecutor: span_mcp_call() → mcp/client.py
+      - RouterNodeExecutor: simpleeval (SAFE, no eval())
+      - HITLNodeExecutor: polls Redis for human response
+      - EvaluatorNodeExecutor: tracks LLM judge costs
+   f. Persists results: Execution + ExecutionNode + CostRecord
+   g. Langfuse: trace_workflow() + trace_node() for each node
+   h. WebSocket: publishes events via Redis pub/sub
+   i. Graceful shutdown on SIGTERM
 
 10. Frontend receives real-time events
     → useExecutionWebSocket.ts connects to ws://localhost:8000/ws/executions/{id}
-    → main.py ConnectionManager broadcasts events
+    → main.py ConnectionManager relays from Redis pub/sub (single shared conn)
     → exec history page updates live
 
 11. User views execution history at /executions?workflow_id=...
@@ -406,11 +431,13 @@ main.py
 
 workers/execution_worker.py
 ├── engine/compiler.py ──── engine/executors.py ──── engine/llm_client.py
-│                          └── mcp/client.py
+│                          ├── mcp/client.py
+│                          ├── simpleeval (safe routing)
+│                          └── services/tracing.py (OTel spans)
 ├── engine/checkpointer.py
 ├── services/budget.py
-├── services/tracing.py
-├── services/langfuse_integration.py
+├── services/tracing.py (span_workflow_execution)
+├── services/langfuse_integration.py (trace_workflow, trace_node)
 ├── services/webhook_delivery.py
 └── core/database.py
 ```
@@ -440,10 +467,10 @@ users ─────────┬──→ workspaces (owner_id)
 
 | Service | Image/Build | Port | Depends On | Purpose |
 |---|---|---|---|---|
-| `api` | `./backend/Dockerfile` | 8000 | postgres, redis | FastAPI REST + WebSocket |
-| `worker` | `./backend/Dockerfile` (different cmd) | — | postgres, redis | Background execution worker |
+| `api` | `./backend/Dockerfile` | 8000 | postgres, redis | FastAPI REST + WebSocket (Redis pub/sub relay) |
+| `worker` | `./backend/Dockerfile` (different cmd, `stop_signal: SIGTERM`) | — | postgres, redis | Background execution worker with graceful shutdown |
 | `frontend` | `./frontend/Dockerfile` | 3000 | api | Next.js dev server |
-| `postgres` | `postgres:16-alpine` | 5432 | — | Primary database (13 tables) |
-| `redis` | `redis:7-alpine` | 6379 | — | Task queue + HITL store |
+| `postgres` | `postgres:16-alpine` | 5432 | — | Primary database (14 tables) |
+| `redis` | `redis:7-alpine` | 6379 | — | Task queue + HITL polling store + pub/sub relay |
 | `minio` | `minio/minio:latest` | 9000, 9001 | — | S3-compatible file storage |
 | `langfuse` | `langfuse/langfuse:2` | 3001 | postgres | LLM observability dashboard |
