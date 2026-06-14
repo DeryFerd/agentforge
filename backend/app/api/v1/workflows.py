@@ -7,9 +7,8 @@ from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.deps import get_current_user
 from app.core.database import get_db
-from app.engine.validator import DAGValidator
+from app.core.deps import get_current_user
 from app.models.user import User
 from app.models.workflow import Workflow
 
@@ -29,11 +28,18 @@ class UpdateWorkflowRequest(BaseModel):
     dag_json: dict | None = None
 
 
+class ImportWorkflowRequest(BaseModel):
+    workspace_id: str
+    name: str | None = None
+    dag: dict
+
+
 class WorkflowResponse(BaseModel):
     id: str
     workspace_id: str
     name: str
     description: str | None
+    dag_json: dict | None = None
     version: int
     is_active: bool
     created_at: str
@@ -47,6 +53,7 @@ def _to_response(w: Workflow) -> WorkflowResponse:
         workspace_id=w.workspace_id,
         name=w.name,
         description=w.description,
+        dag_json=w.dag_json,
         version=w.version,
         is_active=w.is_active,
         created_at=str(w.created_at),
@@ -149,11 +156,13 @@ async def validate_workflow(
     db: AsyncSession = Depends(get_db),
     user: Annotated[User, Depends(get_current_user)] = ...,
 ):
-    """Validate a workflow's DAG structure (cycle detection, orphan nodes, etc.)."""
+    """Validate a workflow's DAG structure."""
     result = await db.execute(select(Workflow).where(Workflow.id == workflow_id))
     workflow = result.scalar_one_or_none()
     if not workflow:
         raise HTTPException(status_code=404, detail="Workflow not found")
+
+    from app.engine.validator import DAGValidator
 
     validator = DAGValidator(workflow.dag_json)
     return validator.validate()
@@ -182,7 +191,6 @@ async def export_workflow(
 
     if format == "yaml":
         import yaml
-
         from fastapi.responses import PlainTextResponse
 
         return PlainTextResponse(
@@ -194,12 +202,6 @@ async def export_workflow(
     return export_data
 
 
-class ImportWorkflowRequest(BaseModel):
-    workspace_id: str
-    name: str | None = None
-    dag: dict
-
-
 @router.post("/import", response_model=WorkflowResponse, status_code=status.HTTP_201_CREATED)
 async def import_workflow(
     body: ImportWorkflowRequest,
@@ -207,11 +209,15 @@ async def import_workflow(
     user: Annotated[User, Depends(get_current_user)] = ...,
 ):
     """Import a workflow from a DAG definition."""
-    # Validate before importing
+    from app.engine.validator import DAGValidator
+
     validator = DAGValidator(body.dag)
     validation = validator.validate()
     if not validation["valid"]:
-        raise HTTPException(status_code=400, detail={"message": "Invalid DAG", "errors": validation["errors"]})
+        raise HTTPException(
+            status_code=400,
+            detail={"message": "Invalid DAG", "errors": validation["errors"]},
+        )
 
     workflow = Workflow(
         workspace_id=body.workspace_id,
