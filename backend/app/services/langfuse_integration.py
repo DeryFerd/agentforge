@@ -1,10 +1,12 @@
-"""Langfuse integration — export traces and generations to Langfuse for LLM observability."""
+"""Langfuse integration — export traces and generations to Langfuse for LLM observability.
+
+Compatible with langfuse v4.x. Uses the Langfuse client directly for tracing.
+"""
 
 from typing import Any
 
 import structlog
 from langfuse import Langfuse
-from langfuse.callback import CallbackHandler as LangfuseCallbackHandler
 
 from app.core.config import get_settings
 
@@ -37,32 +39,6 @@ def get_langfuse() -> Langfuse | None:
         return None
 
 
-def get_langfuse_handler(
-    session_id: str | None = None,
-    user_id: str | None = None,
-    tags: list[str] | None = None,
-) -> LangfuseCallbackHandler | None:
-    """Get a LangChain callback handler for Langfuse tracing.
-
-    Pass this to LangChain model calls to automatically trace generations.
-    Usage:
-        handler = get_langfuse_handler(session_id="exec_123")
-        llm = ChatOpenAI(..., callbacks=[handler] if handler else [])
-    """
-    lf = get_langfuse()
-    if lf is None:
-        return None
-
-    return LangfuseCallbackHandler(
-        public_key=settings.langfuse_public_key,
-        secret_key=settings.langfuse_secret_key,
-        host=settings.langfuse_host,
-        session_id=session_id,
-        user_id=user_id,
-        tags=tags or [],
-    )
-
-
 def trace_workflow(
     execution_id: str,
     workflow_id: str,
@@ -80,7 +56,7 @@ def trace_workflow(
         return
 
     try:
-        trace = lf.trace(
+        lf.trace(
             id=execution_id,
             name=f"workflow:{workflow_name}",
             session_id=workflow_id,
@@ -93,10 +69,6 @@ def trace_workflow(
                 "status": status,
             },
             tags=["workflow", status],
-            usage={
-                "totalCost": total_cost,
-                "totalTokens": total_tokens,
-            },
         )
         logger.info("Langfuse trace created", execution_id=execution_id)
     except Exception as e:
@@ -120,7 +92,6 @@ def trace_node(
         return
 
     try:
-        # If this is an LLM node, log as a generation
         if node_type == "agent" and model:
             lf.generation(
                 trace_id=execution_id,
@@ -136,7 +107,6 @@ def trace_node(
                 metadata={"node_id": node_id, "node_type": node_type},
             )
         else:
-            # Non-LLM nodes logged as spans
             lf.span(
                 trace_id=execution_id,
                 name=f"node:{node_id}:{node_type}",
