@@ -1,7 +1,140 @@
 # AgentForge — Architecture & File Structure
 
 > Complete map of the codebase: every file, its purpose, and how it connects to others.
-> Last updated: June 13, 2026 (post-roast-fix session)
+> Last updated: June 15, 2026 (live debug session)
+
+---
+
+## Running End-to-End (Local Development)
+
+### Prerequisites
+- Python 3.12+
+- Node.js 20+
+- Docker Desktop (running)
+
+### Step 1: Start Infrastructure (PostgreSQL + Redis)
+
+```bash
+cd agentforge
+
+# Create .env from template
+cp .env.example .env
+
+# Start Docker Desktop first, then:
+docker compose up postgres redis -d
+
+# Wait for healthy status
+docker compose ps
+# Both should show "(healthy)"
+```
+
+### Step 2: Run Database Migrations
+
+```bash
+cd backend
+
+# Install Python dependencies
+pip install -e ".[dev]"
+
+# Run Alembic migrations (creates 14 tables)
+alembic upgrade head
+```
+
+### Step 3: Start Backend
+
+```bash
+cd backend
+
+# Start FastAPI server
+python -m uvicorn app.main:app --host 0.0.0.0 --port 8000
+```
+
+Backend will be available at:
+- **API:** http://localhost:8000
+- **Swagger docs:** http://localhost:8000/docs
+- **Health check:** http://localhost:8000/health
+
+### Step 4: Start Frontend
+
+```bash
+cd frontend
+
+# Install Node dependencies
+npm install
+
+# Start Next.js dev server
+npm run dev
+```
+
+Frontend will be available at:
+- **App:** http://localhost:3000
+
+### Step 5: Test the Full Flow
+
+1. Open http://localhost:3000 in your browser
+2. You'll be redirected to `/login` (not authenticated)
+3. Register a new account or use test credentials:
+   - Email: `test@example.com`
+   - Password: `testpass123`
+4. After login, you'll see the dashboard
+5. Click "New Workflow" to open the DAG editor
+6. Add nodes from the toolbar (Agent, Tool, Router, etc.)
+7. Connect nodes by dragging edges
+8. Click Validate, Save (Ctrl+S), or Run
+
+### Quick API Test (curl)
+
+```bash
+# Register
+curl -X POST http://localhost:8000/api/v1/auth/register \
+  -H "Content-Type: application/json" \
+  -d '{"email": "test@example.com", "password": "testpass123", "full_name": "Test User"}'
+
+# Login (returns JWT)
+curl -X POST http://localhost:8000/api/v1/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{"email": "test@example.com", "password": "testpass123"}'
+
+# List workflows (requires Bearer token from login)
+curl http://localhost:8000/api/v1/workflows \
+  -H "Authorization: Bearer <your_access_token>"
+```
+
+### Running Tests
+
+```bash
+cd backend
+
+# Run all backend tests (requires PostgreSQL or falls back to SQLite)
+pytest tests/ -v
+
+# Run specific test file
+pytest tests/test_engine.py -v
+
+# Run with coverage
+pytest tests/ --cov=app --cov-report=html
+```
+
+### Stopping Everything
+
+```bash
+# Stop Docker containers
+docker compose down
+
+# Or stop and remove volumes (fresh DB next time)
+docker compose down -v
+```
+
+### Troubleshooting
+
+| Problem | Solution |
+|---|---|
+| `docker compose` fails | Make sure Docker Desktop is running first |
+| `alembic upgrade head` fails | Check PostgreSQL is healthy (`docker compose ps`) |
+| Backend 500 on register | Ensure migrations ran successfully |
+| Frontend "Could not load workflows" | Normal when not logged in — redirects to `/login` |
+| `ModuleNotFoundError: langfuse.callback` | Fixed in latest code (langfuse v4 compat) |
+| `passlib` bcrypt error | Fixed in latest code (uses bcrypt directly) |
 
 ---
 
@@ -115,7 +248,7 @@
 | `.env.example` | Environment variable template | `config.py`, `docker-compose.yml` |
 | `.gitignore` | Git ignore rules | — |
 | `.dockerignore` | Excludes node_modules, .git, tests from Docker builds | Docker build context |
-| `README.md` | Project overview + quickstart (clone URL fixed to `DeryFerd`) | All docs |
+| `README.md` | Project overview + quickstart (clone URL: `DeryFerd`) | All docs |
 | `LICENSE` | Apache 2.0 | — |
 | `CONTRIBUTING.md` | Contributor guide | — |
 | `STRUCTURE.md` | Architecture map (this file) | All files |
@@ -149,7 +282,7 @@
 | `app/main.py` | FastAPI app, middleware stack, WebSocket with Redis pub/sub relay (roast fix: no connection leak), lifespan with OTel + Langfuse init | `config.py`, `rate_limit.py`, `security_middleware.py`, `router.py`, `tracing.py`, `langfuse_integration.py`, `redis.asyncio` | Uvicorn, Docker |
 | `Dockerfile` | Python 3.12 image for API + Worker | `pyproject.toml` | `docker-compose.yml` |
 | `.dockerignore` | Excludes __pycache__, .git, tests, *.md from build | Docker build | — |
-| `pyproject.toml` | Dependencies + tool config. **New deps:** `simpleeval>=1.0.0`, `testcontainers[postgres]>=4.0.0` | — | `pip install` |
+| `pyproject.toml` | Dependencies + tool config. **Key deps:** `simpleeval`, `bcrypt` (direct), `testcontainers[postgres]` | — | `pip install` |
 
 #### Core — `backend/app/core/`
 
@@ -157,8 +290,8 @@
 |---|---|---|---|
 | `config.py` | `Settings` class (pydantic-settings), `get_settings()` | `.env` file | Every module |
 | `database.py` | Async SQLAlchemy engine, `Base`, `get_db()` dependency | `config.py` (DATABASE_URL) | All routers, models, Alembic |
-| `deps.py` | `get_current_user`, `RequireRole`, `log_audit()` | `security.py`, `database.py`, `user.py`, `workspace.py` | All auth-protected endpoints |
-| `security.py` | `hash_password()`, `verify_password()`, `create_access_token()`, `create_refresh_token()`, `decode_token()` | `config.py` (JWT settings) | `auth.py`, `deps.py`, `oauth.py` |
+| `deps.py` | `get_current_user` (Header optional → 401), `RequireRole`, `log_audit()` | `security.py`, `database.py`, `user.py`, `workspace.py` | All auth-protected endpoints |
+| `security.py` | `hash_password()`, `verify_password()` (bcrypt direct), `create_access_token()`, `create_refresh_token()`, `decode_token()` | `config.py` (JWT settings) | `auth.py`, `deps.py`, `oauth.py` |
 | `rate_limit.py` | `RateLimitMiddleware` — per-IP, API key bypass | `config.py` | `main.py` |
 | `security_middleware.py` | `SecurityHeadersMiddleware` (OWASP: X-Frame-Options, nosniff, CSP), `InputSanitizer`, `validate_dag_structure()` | — | `main.py`, `workflows.py` |
 
@@ -206,7 +339,7 @@
 |---|---|---|
 | `budget.py` | `check_budget()`, `check_node_budget()`, `BudgetExceededError` | `execution_worker.py`, `executions.py` |
 | `tracing.py` | `setup_tracing()`, `get_tracer()`, span helpers (`span_workflow_execution`, `span_node_execution`, `span_llm_call`, `span_mcp_call`) — **NOW WIRED into executors + worker** | `main.py` (lifespan), `execution_worker.py`, `executors.py` |
-| `langfuse_integration.py` | `get_langfuse()`, `trace_workflow()`, `trace_node()`, `get_langfuse_handler()`, `flush()` — **NOW WIRED into worker** | `main.py` (lifespan), `execution_worker.py` |
+| `langfuse_integration.py` | `get_langfuse()`, `trace_workflow()`, `trace_node()`, `flush()` — **NOW WIRED into worker** (v4 compatible, no callback import) | `main.py` (lifespan), `execution_worker.py` |
 | `webhook_delivery.py` | `deliver_webhook()` (HMAC-SHA256 + 3x retry with backoff), `verify_webhook_signature()` | `execution_worker.py`, `webhooks.py` |
 
 #### Workers — `backend/app/workers/`
@@ -281,7 +414,7 @@
 
 | File | Purpose | Used By |
 |---|---|---|
-| `api.ts` | Axios client with JWT interceptors + 401 redirect. Exports: `authApi`, `workflowApi`, `executionApi`, `workspaceApi` | All pages, `workflow-store.ts` |
+| `api.ts` | Axios client with JWT interceptors + 401 redirect to `/login`. Exports: `authApi`, `workflowApi`, `executionApi`, `workspaceApi` | All pages, `workflow-store.ts` |
 | `types.ts` | TypeScript interfaces: `User`, `Workspace`, `Workflow`, `DAGNode`, `DAGEdge`, `Execution`, `ValidationResult`, `TokenResponse` | All pages, store, API client |
 | `useExecutionWebSocket.ts` | React hook — WebSocket connection, auto-reconnect, ping/pong, HITL approval sender | `editor/page.tsx`, `executions/page.tsx` |
 
@@ -336,7 +469,7 @@
 1. User logs in at /login
    → login/page.tsx calls authApi.login()
    → POST /api/v1/auth/login
-   → auth.py validates credentials via security.py
+   → auth.py validates credentials via security.py (bcrypt)
    → Returns JWT tokens → stored in localStorage
 
 2. User creates a workspace at /workspaces

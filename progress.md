@@ -1,10 +1,10 @@
 # AgentForge — Progress Tracker
 
-> **Last Updated:** June 13, 2026 (Roast Fix Session)
+> **Last Updated:** June 15, 2026 (Live Debug Session)
 
 ---
 
-## Current Phase: **Roast Review Fixes Applied**
+## Current Phase: **All Features Implemented — Live Verified**
 
 ---
 
@@ -31,19 +31,25 @@
 | SQLite tests vs PostgreSQL | **Fixed** | `conftest.py` now uses `testcontainers-python` with real PostgreSQL, SQLite fallback |
 | No live demo URL | Deferred | Requires cloud deployment |
 
-### Minor
-| Issue | Status | Fix |
-|---|---|---|
-| WebSocket Redis connection leak | **Fixed** | Redis pub/sub relay with single shared connection, per-connection client for HITL |
-| Docker Compose `version: "3.9"` | **Fixed** | Removed deprecated `version` field, added `stop_signal: SIGTERM` for worker |
-| No `.dockerignore` | **Fixed** | Added for both backend and frontend |
-| `yourusername` in README | **Fixed** | Changed to `DeryFerd` |
-| Evaluator doesn't track LLM costs | **Fixed** | EvaluatorNodeExecutor now tracks `tokens_in`, `tokens_out`, `cost_usd` from judge LLM |
-| No ADRs | **Fixed** | 5 ADRs: LangGraph, PostgreSQL checkpointing, React Flow, simpleeval, FastAPI |
+### Minor — All Fixed
+- WebSocket Redis connection leak → pub/sub relay
+- Docker Compose `version: "3.9"` → removed, added `stop_signal: SIGTERM`
+- No `.dockerignore` → added for both backend and frontend
+- `yourusername` in README → `DeryFerd`
+- Evaluator cost tracking → now returns actual tokens/cost from LLM judge
+- No ADRs → 5 ADRs created
 
-### Dependencies Added
-- `simpleeval>=1.0.0` — safe expression evaluation
-- `testcontainers[postgres]>=4.0.0` — PostgreSQL test containers
+---
+
+## Runtime Fixes (Live Debug Session — June 15)
+
+| Issue | Root Cause | Fix |
+|---|---|---|
+| Backend fails to start | `langfuse.callback` module removed in v4.x | Removed deprecated import, use `Langfuse` client directly |
+| `pip install -e .` fails | setuptools finds `app` + `alembic` as multiple packages | Added `[tool.setuptools.packages.find] include = ["app*"]` |
+| Register returns 500 | `passlib` incompatible with `bcrypt >= 4.1` | Replaced with direct `bcrypt.hashpw()` / `bcrypt.checkpw()` |
+| `GET /workflows` returns 422 | `Header(...)` makes auth header required → FastAPI 422 | Changed to `Header(None)` + explicit 401 when missing |
+| Docker Compose needs `.env` | Compose references `.env` file | Copy `.env.example` → `.env` |
 
 ---
 
@@ -55,4 +61,5 @@
 | June 11 2026 | Session 2 | Frontend polish: save wiring, login, workspaces, node config, execution history |
 | June 11 2026 | Session 3 | LLM client, MCP client, checkpointer, rate limiting, API keys, webhooks, OAuth, WebSocket, templates, MCP/template/cost UI, E2E tests |
 | June 11 2026 | Session 4 | Budget enforcement, OTel tracing, Langfuse integration, HITL WebSocket, error boundaries, versioning UI, dark mode, agent memory, security hardening |
-| June 13 2026 | Roast Fixes | **Kill eval() (simpleeval), real HITL (Redis polling), wire OTel spans into executors+worker, engine tests (25+), testcontainers PostgreSQL, fix WebSocket Redis leak, Docker Compose fix, .dockerignore, README fix, evaluator cost tracking, 5 ADRs** |
+| June 13 2026 | Roast Fixes | Kill eval(), real HITL, OTel spans wired, engine tests, testcontainers, WebSocket leak, Docker fix, ADRs |
+| June 15 2026 | **Live Debug** | **langfuse v4 fix, setuptools fix, bcrypt direct, auth 401 fix, Docker + migrations + full stack verified working** |
