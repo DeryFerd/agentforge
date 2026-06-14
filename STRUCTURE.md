@@ -404,7 +404,7 @@ docker compose down -v
 
 | File | Purpose | Used By |
 |---|---|---|
-| `DAGCanvas.tsx` | React Flow canvas with custom nodes, minimap, controls, snap-to-grid | `editor/page.tsx` |
+| `DAGCanvas.tsx` | React Flow canvas using Zustand store directly (`applyNodeChanges`/`applyEdgeChanges`, no `useNodesState` dual-state), minimap, controls, snap-to-grid | `editor/page.tsx`, `workflow-store.ts` |
 | `AgentForgeNode.tsx` | Custom React Flow node — 7 types with color + icon | `DAGCanvas.tsx` |
 | `NodeToolbar.tsx` | Sidebar to add nodes (Agent, Tool, Router, Evaluator, HITL, Input, Output) | `DAGCanvas.tsx` |
 | `NodeConfigPanel.tsx` | Right sidebar — per-type config forms (prompt, model, temperature, routing mode, etc.) | `editor/page.tsx` |

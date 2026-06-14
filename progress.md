@@ -1,10 +1,10 @@
 # AgentForge — Progress Tracker
 
-> **Last Updated:** June 15, 2026 (Live Debug Session)
+> **Last Updated:** June 15, 2026 (Live Debug Session — E2E Bug Fixes)
 
 ---
 
-## Current Phase: **All Features Implemented — Live Verified**
+## Current Phase: **All Features Implemented — Live Verified + E2E Bug Fixes**
 
 ---
 
@@ -19,37 +19,41 @@
 ### Critical (Kill List)
 | Issue | Status | Fix |
 |---|---|---|
-| `eval()` in RouterNodeExecutor | **Fixed** | Replaced with `simpleeval` library — safe expression evaluator that blocks code execution |
-| HITL auto-approves everything | **Fixed** | Real implementation: polls Redis for human response, timeout rejects, error on rejection |
-| Git history reveals 2-evening build | Deferred | Requires interactive rebase — not done in code |
+| `eval()` in RouterNodeExecutor | **Fixed** | Replaced with `simpleeval` library |
+| HITL auto-approves everything | **Fixed** | Real Redis polling, timeout rejects |
+| Git history reveals 2-evening build | Deferred | Requires interactive rebase |
 
-### Major
-| Issue | Status | Fix |
-|---|---|---|
-| OTel spans defined but never called | **Fixed** | All executors wrap with `_wrap_with_span()`, worker uses `span_workflow_execution()`, LLM calls use `span_llm_call()` |
-| No engine tests | **Fixed** | `test_engine.py`: 25+ tests covering compiler, all 7 executors, full pipeline, safeeval security |
-| SQLite tests vs PostgreSQL | **Fixed** | `conftest.py` now uses `testcontainers-python` with real PostgreSQL, SQLite fallback |
-| No live demo URL | Deferred | Requires cloud deployment |
+### Major — All Fixed
+- OTel spans wired into executors + worker
+- Engine tests: 25+ tests (compiler, all executors, safeeval security)
+- SQLite → testcontainers-postgres with fallback
+- No live demo URL — deferred
 
 ### Minor — All Fixed
-- WebSocket Redis connection leak → pub/sub relay
-- Docker Compose `version: "3.9"` → removed, added `stop_signal: SIGTERM`
-- No `.dockerignore` → added for both backend and frontend
-- `yourusername` in README → `DeryFerd`
-- Evaluator cost tracking → now returns actual tokens/cost from LLM judge
-- No ADRs → 5 ADRs created
+- WebSocket Redis leak → pub/sub relay
+- Docker Compose `version` removed, `stop_signal` added
+- `.dockerignore` added, README URL fixed
+- Evaluator cost tracking, 5 ADRs created
 
 ---
 
-## Runtime Fixes (Live Debug Session — June 15)
+## Runtime Fixes (Live Debug — June 15)
 
+### Infrastructure
 | Issue | Root Cause | Fix |
 |---|---|---|
-| Backend fails to start | `langfuse.callback` module removed in v4.x | Removed deprecated import, use `Langfuse` client directly |
-| `pip install -e .` fails | setuptools finds `app` + `alembic` as multiple packages | Added `[tool.setuptools.packages.find] include = ["app*"]` |
-| Register returns 500 | `passlib` incompatible with `bcrypt >= 4.1` | Replaced with direct `bcrypt.hashpw()` / `bcrypt.checkpw()` |
-| `GET /workflows` returns 422 | `Header(...)` makes auth header required → FastAPI 422 | Changed to `Header(None)` + explicit 401 when missing |
-| Docker Compose needs `.env` | Compose references `.env` file | Copy `.env.example` → `.env` |
+| Backend fails to start | `langfuse.callback` removed in v4.x | Use `Langfuse` client directly |
+| `pip install -e .` fails | setuptools multi-package detection | `[tool.setuptools.packages.find] include = ["app*"]` |
+| Register returns 500 | `passlib` incompatible with `bcrypt >= 4.1` | Direct `bcrypt.hashpw()`/`checkpw()` |
+| `GET /workflows` returns 422 | `Header(...)` required → 422 | `Header(None)` + explicit 401 |
+
+### E2E Workflow Bugs (found during live testing)
+| Issue | Root Cause | Fix | Commit |
+|---|---|---|---|
+| Nodes don't appear on canvas | React Flow `useNodesState` creates local state that doesn't sync with Zustand store | Removed `useNodesState`/`useEdgesState`, use Zustand store directly with `applyNodeChanges`/`applyEdgeChanges` | `dag_canvas_fix` |
+| Save returns "Network Error" | `workspace_id: "default"` not a valid UUID → FK violation → 500 → axios shows as network error | Auto-create workspace via API if none exists; extract `error.response.data.detail` for meaningful messages | `e856afe` |
+| Save creates new workflow instead of updating | After first save, URL stays at `/editor` (no `?id=xxx`) → store `workflowId` lost on navigation | `useEffect` watches `storeWorkflowId` → `router.replace(/editor?id=xxx)` | `a962df1` |
+| Saved workflow nodes disappear on reload | `WorkflowResponse` model didn't include `dag_json` field → `loadWorkflow()` gets undefined | Added `dag_json: dict | None` to `WorkflowResponse` + `_to_response()` | `1399b76` |
 
 ---
 
@@ -62,4 +66,5 @@
 | June 11 2026 | Session 3 | LLM client, MCP client, checkpointer, rate limiting, API keys, webhooks, OAuth, WebSocket, templates, MCP/template/cost UI, E2E tests |
 | June 11 2026 | Session 4 | Budget enforcement, OTel tracing, Langfuse integration, HITL WebSocket, error boundaries, versioning UI, dark mode, agent memory, security hardening |
 | June 13 2026 | Roast Fixes | Kill eval(), real HITL, OTel spans wired, engine tests, testcontainers, WebSocket leak, Docker fix, ADRs |
-| June 15 2026 | **Live Debug** | **langfuse v4 fix, setuptools fix, bcrypt direct, auth 401 fix, Docker + migrations + full stack verified working** |
+| June 15 2026 | Live Debug | langfuse v4, setuptools, bcrypt, auth 401, Docker + migrations + full stack verified |
+| June 15 2026 | **E2E Bug Fixes** | **4 critical E2E bugs fixed: React Flow state sync, auto-create workspace, URL sync after save, dag_json in API response** |
