@@ -1,6 +1,5 @@
 """Shared FastAPI dependencies for authentication, authorization, and audit logging."""
 
-from functools import wraps
 from typing import Annotated
 
 from fastapi import Depends, Header, HTTPException, status
@@ -14,17 +13,23 @@ from app.models.user import User
 from app.models.workspace import WorkspaceMember
 
 
-# ─── Auth Dependencies ───────────────────────────────────────────────────────
+# ─── Auth Dependencies ────────────────────────────────────────────
 
 
 async def get_current_user(
-    authorization: str = Header(..., description="Bearer <token>"),
+    authorization: str | None = Header(None, description="Bearer <token>"),
     db: AsyncSession = Depends(get_db),
 ) -> User:
     """Validate JWT and return the authenticated User object.
 
     Raises 401 if the token is missing, invalid, or the user doesn't exist.
     """
+    if not authorization:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Missing Authorization header",
+        )
+
     if not authorization.startswith("Bearer "):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -61,7 +66,8 @@ async def get_current_user_id(
     return user.id
 
 
-# ─── RBAC Dependencies ───────────────────────────────────────────────────────
+# ─── RBAC Dependencies ────────────────────────────────────────────
+
 
 # Role hierarchy: owner > admin > editor > viewer
 ROLE_HIERARCHY = {
@@ -126,7 +132,7 @@ require_editor = RequireRole("editor")
 require_viewer = RequireRole("viewer")
 
 
-# ─── Audit Logging ───────────────────────────────────────────────────────────
+# ─── Audit Logging ────────────────────────────────────────────────
 
 
 async def log_audit(
