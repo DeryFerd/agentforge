@@ -36,7 +36,7 @@ export default function RootLayout({
             __html: `
               try {
                 if (localStorage.theme === 'dark' || (!('theme' in localStorage) && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
-                  document.documentElement.classList.add('dark');
+                  document.body.classList.add('dark');
                 }
               } catch (_) {}
             `,

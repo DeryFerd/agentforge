@@ -37,10 +37,19 @@ export default function DAGCanvas() {
   );
 
   // Handle node changes (drag, select, delete) — apply to Zustand store directly
+  // Filter out 'select' and 'dimensions' changes — they should NOT mark the workflow as dirty
   const onNodesChange: OnNodesChange = useCallback(
     (changes) => {
       const updatedNodes = applyNodeChanges(changes, nodes);
-      setStoreNodes(updatedNodes);
+      const hasStructuralChange = changes.some(
+        (c) => c.type !== "select" && c.type !== "dimensions"
+      );
+      if (hasStructuralChange) {
+        setStoreNodes(updatedNodes);
+      } else {
+        // Only update nodes array without setting isDirty
+        useWorkflowStore.setState({ nodes: updatedNodes });
+      }
     },
     [nodes, setStoreNodes]
   );
@@ -49,7 +58,12 @@ export default function DAGCanvas() {
   const onEdgesChange: OnEdgesChange = useCallback(
     (changes) => {
       const updatedEdges = applyEdgeChanges(changes, edges);
-      setStoreEdges(updatedEdges);
+      const hasStructuralChange = changes.some((c) => c.type !== "select");
+      if (hasStructuralChange) {
+        setStoreEdges(updatedEdges);
+      } else {
+        useWorkflowStore.setState({ edges: updatedEdges });
+      }
     },
     [edges, setStoreEdges]
   );
@@ -91,14 +105,14 @@ export default function DAGCanvas() {
         snapToGrid
         snapGrid={[15, 15]}
         deleteKeyCode="Delete"
-        className="bg-gray-50"
+        className="bg-gray-50 dark:bg-gray-950"
       >
         <Background gap={15} size={1} color="#e5e7eb" />
         <Controls showInteractive={false} />
         <MiniMap
           nodeColor={(n) => (n.data?.color as string) || "#6B7280"}
           maskColor="rgba(0,0,0,0.08)"
-          className="!bg-white !border !border-gray-200 !rounded-lg"
+          className="!bg-white dark:!bg-gray-800 !border !border-gray-200 dark:!border-gray-700 !rounded-lg"
         />
       </ReactFlow>
       <NodeToolbar />

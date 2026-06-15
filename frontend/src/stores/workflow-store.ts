@@ -199,7 +199,7 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
             const wsResponse = await workspaceApi.create("My Workspace");
             wsId = wsResponse.data.id;
             if (typeof window !== "undefined") {
-              localStorage.setItem("current_workspace_id", wsId);
+              localStorage.setItem("current_workspace_id", wsId!);
               localStorage.setItem("current_workspace_name", wsResponse.data.name);
             }
           } catch {
@@ -209,7 +209,7 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
         }
 
         const response = await workflowApi.create({
-          workspace_id: wsId,
+          workspace_id: wsId!,
           name: state.workflowName,
           description: state.workflowDescription,
           dag_json: dag,

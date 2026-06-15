@@ -74,23 +74,23 @@ export default function MCPServersPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <header className="bg-white border-b">
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-950">
+      <header className="bg-white dark:bg-gray-900 border-b dark:border-gray-800">
         <div className="max-w-5xl mx-auto px-6 py-4 flex items-center gap-3">
-          <a href="/" className="text-sm text-gray-500 hover:text-gray-700">← Dashboard</a>
+          <a href="/" className="text-sm text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200">← Dashboard</a>
           <div className="w-8 h-8 bg-purple-600 rounded-lg flex items-center justify-center">
             <Server size={18} className="text-white" />
           </div>
           <div>
-            <h1 className="text-xl font-bold text-gray-900">MCP Servers</h1>
-            <p className="text-xs text-gray-500">Manage Model Context Protocol server connections</p>
+            <h1 className="text-xl font-bold text-gray-900 dark:text-gray-100">MCP Servers</h1>
+            <p className="text-xs text-gray-500 dark:text-gray-400">Manage Model Context Protocol server connections</p>
           </div>
         </div>
       </header>
 
       <main className="max-w-5xl mx-auto px-6 py-8">
         <div className="flex justify-between items-center mb-6">
-          <p className="text-sm text-gray-600">
+          <p className="text-sm text-gray-600 dark:text-gray-400">
             MCP servers provide tools that agents can call during workflow execution.
           </p>
           <button
@@ -102,24 +102,24 @@ export default function MCPServersPage() {
         </div>
 
         {showForm && (
-          <form onSubmit={handleSubmit} className="bg-white rounded-lg border p-4 mb-6 space-y-3">
+          <form onSubmit={handleSubmit} className="bg-white dark:bg-gray-900 rounded-lg border dark:border-gray-700 p-4 mb-6 space-y-3">
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <label className="block text-xs font-medium text-gray-600 mb-1">Name</label>
+                <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Name</label>
                 <input
                   required
                   value={form.name}
                   onChange={(e) => setForm({ ...form, name: e.target.value })}
                   placeholder="e.g. web-search"
-                  className="w-full px-3 py-2 border rounded-lg text-sm"
+                  className="w-full px-3 py-2 border dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100 rounded-lg text-sm"
                 />
               </div>
               <div>
-                <label className="block text-xs font-medium text-gray-600 mb-1">Transport</label>
+                <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Transport</label>
                 <select
                   value={form.transport}
                   onChange={(e) => setForm({ ...form, transport: e.target.value })}
-                  className="w-full px-3 py-2 border rounded-lg text-sm"
+                  className="w-full px-3 py-2 border dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100 rounded-lg text-sm"
                 >
                   <option value="stdio">stdio (local command)</option>
                   <option value="sse">SSE (remote URL)</option>
@@ -128,22 +128,22 @@ export default function MCPServersPage() {
             </div>
             {form.transport === "stdio" ? (
               <div>
-                <label className="block text-xs font-medium text-gray-600 mb-1">Command</label>
+                <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Command</label>
                 <input
                   value={form.command}
                   onChange={(e) => setForm({ ...form, command: e.target.value })}
                   placeholder="e.g. npx -y @modelcontextprotocol/server-postgres postgresql://..."
-                  className="w-full px-3 py-2 border rounded-lg text-sm"
+                  className="w-full px-3 py-2 border dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100 rounded-lg text-sm"
                 />
               </div>
             ) : (
               <div>
-                <label className="block text-xs font-medium text-gray-600 mb-1">URL</label>
+                <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">URL</label>
                 <input
                   value={form.url}
                   onChange={(e) => setForm({ ...form, url: e.target.value })}
                   placeholder="http://localhost:3000/sse"
-                  className="w-full px-3 py-2 border rounded-lg text-sm"
+                  className="w-full px-3 py-2 border dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100 rounded-lg text-sm"
                 />
               </div>
             )}
@@ -151,7 +151,7 @@ export default function MCPServersPage() {
               <button type="submit" className="px-4 py-2 bg-purple-600 text-white rounded-lg text-sm">
                 Register
               </button>
-              <button type="button" onClick={() => setShowForm(false)} className="px-4 py-2 bg-gray-100 rounded-lg text-sm">
+              <button type="button" onClick={() => setShowForm(false)} className="px-4 py-2 bg-gray-100 dark:bg-gray-800 dark:text-gray-300 rounded-lg text-sm">
                 Cancel
               </button>
             </div>
@@ -159,44 +159,44 @@ export default function MCPServersPage() {
         )}
 
         {loading ? (
-          <div className="text-center py-12 text-gray-400">Loading...</div>
+          <div className="text-center py-12 text-gray-400 dark:text-gray-500">Loading...</div>
         ) : servers.length === 0 ? (
-          <div className="bg-white rounded-lg border p-12 text-center">
-            <Server size={32} className="text-gray-300 mx-auto mb-3" />
-            <h3 className="text-lg font-medium text-gray-700 mb-2">No MCP servers registered</h3>
-            <p className="text-gray-500 text-sm">
+          <div className="bg-white dark:bg-gray-900 rounded-lg border dark:border-gray-700 p-12 text-center">
+            <Server size={32} className="text-gray-300 dark:text-gray-600 mx-auto mb-3" />
+            <h3 className="text-lg font-medium text-gray-700 dark:text-gray-300 mb-2">No MCP servers registered</h3>
+            <p className="text-gray-500 dark:text-gray-400 text-sm">
               Register an MCP server to make tools available to your agents.
             </p>
           </div>
         ) : (
           <div className="space-y-2">
             {servers.map((server) => (
-              <div key={server.id} className="bg-white rounded-lg border p-4 flex items-center justify-between">
+              <div key={server.id} className="bg-white dark:bg-gray-900 rounded-lg border dark:border-gray-700 p-4 flex items-center justify-between">
                 <div className="flex items-center gap-3">
-                  <Server size={18} className="text-purple-600" />
+                  <Server size={18} className="text-purple-600 dark:text-purple-400" />
                   <div>
-                    <h3 className="font-medium text-gray-800">{server.name}</h3>
-                    <p className="text-xs text-gray-500">
+                    <h3 className="font-medium text-gray-800 dark:text-gray-200">{server.name}</h3>
+                    <p className="text-xs text-gray-500 dark:text-gray-400">
                       {server.transport} — {server.url || server.command || "—"}
                     </p>
                   </div>
                 </div>
                 <div className="flex items-center gap-2">
                   <span className={`flex items-center gap-1 text-xs ${
-                    server.health_status === "healthy" ? "text-green-600" : "text-gray-400"
+                    server.health_status === "healthy" ? "text-green-600 dark:text-green-400" : "text-gray-400 dark:text-gray-500"
                   }`}>
                     {server.health_status === "healthy" ? <CheckCircle size={12} /> : <XCircle size={12} />}
                     {server.health_status}
                   </span>
                   <button
                     onClick={() => handleHealthCheck(server.id)}
-                    className="p-1.5 text-gray-400 hover:text-blue-600 rounded"
+                    className="p-1.5 text-gray-400 dark:text-gray-500 hover:text-blue-600 dark:hover:text-blue-400 rounded"
                   >
                     <RefreshCw size={14} />
                   </button>
                   <button
                     onClick={() => handleDelete(server.id)}
-                    className="p-1.5 text-gray-400 hover:text-red-600 rounded"
+                    className="p-1.5 text-gray-400 dark:text-gray-500 hover:text-red-600 dark:hover:text-red-400 rounded"
                   >
                     <Trash2 size={14} />
                   </button>

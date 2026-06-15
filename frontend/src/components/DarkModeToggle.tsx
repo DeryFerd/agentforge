@@ -13,14 +13,15 @@ export default function DarkModeToggle() {
     const prefersDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
     const isDark = stored === "dark" || (!stored && prefersDark);
     setDark(isDark);
-    document.documentElement.classList.toggle("dark", isDark);
+    // Apply dark class to <body> instead of <html> to avoid React resetting it
+    document.body.classList.toggle("dark", isDark);
   }, []);
 
   const toggle = () => {
     const next = !dark;
     setDark(next);
     localStorage.setItem("theme", next ? "dark" : "light");
-    document.documentElement.classList.toggle("dark", next);
+    document.body.classList.toggle("dark", next);
   };
 
   return (

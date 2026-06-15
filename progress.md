@@ -1,10 +1,10 @@
 # AgentForge — Progress Tracker
 
-> **Last Updated:** June 15, 2026 (Live Debug Session — E2E Bug Fixes)
+> **Last Updated:** June 16, 2026 (UI Bug Fix Session — Save/Auth/Dark Mode)
 
 ---
 
-## Current Phase: **All Features Implemented — Live Verified + E2E Bug Fixes**
+## Current Phase: **All Features Implemented — UI Polish + Bug Fixes**
 
 ---
 
@@ -57,6 +57,17 @@
 
 ---
 
+## UI Bug Fix Session (June 16)
+
+| Issue | Root Cause | Fix |
+|---|---|---|
+| Save button stays active after save (v1→v2 without changes) | React Flow fires `onNodesChange` for `select` and `dimensions` events (not just structural edits), which all triggered `setNodes` → `isDirty: true` | Filter non-structural changes in `DAGCanvas.tsx`; use `useWorkflowStore.setState()` directly for select/dimensions without setting isDirty |
+| No auth redirect on first load (goes to dashboard instead of login) | Dashboard and editor pages had no auth guard — loaded immediately without checking `access_token` | Added `useEffect` auth guards with `router.replace("/login")`, loading screen prevents flash, also wrapped `useSearchParams` pages in `Suspense` for Next.js build |
+| Dark mode not implemented | All 8 pages + 5 DAG components used hardcoded light colors (`bg-white`, `text-gray-900`) with no `dark:` Tailwind variants | Added `dark:` classes to all pages/components; added `@custom-variant dark` to `globals.css` for Tailwind v4 class-based dark mode; DarkModeToggle added to dashboard + editor headers |
+| Dark mode toggle stuck on dark (can't switch back to light) | (1) Tailwind v4 defaults to `prefers-color-scheme` media query, ignoring `.dark` class; (2) Next.js React reconciliation resets `<html>` className on re-renders, wiping the `.dark` class | (1) Added `@custom-variant dark (&:where(.dark, .dark *))` to globals.css; (2) Toggle targets `<body>` instead of `<html>` since body isn't reconciled by React |
+
+---
+
 ## Changelog
 
 | Date | Session | Change |
@@ -67,4 +78,5 @@
 | June 11 2026 | Session 4 | Budget enforcement, OTel tracing, Langfuse integration, HITL WebSocket, error boundaries, versioning UI, dark mode, agent memory, security hardening |
 | June 13 2026 | Roast Fixes | Kill eval(), real HITL, OTel spans wired, engine tests, testcontainers, WebSocket leak, Docker fix, ADRs |
 | June 15 2026 | Live Debug | langfuse v4, setuptools, bcrypt, auth 401, Docker + migrations + full stack verified |
-| June 15 2026 | **E2E Bug Fixes** | **4 critical E2E bugs fixed: React Flow state sync, auto-create workspace, URL sync after save, dag_json in API response** |
+| June 15 2026 | E2E Bug Fixes | 4 critical E2E bugs fixed: React Flow state sync, auto-create workspace, URL sync after save, dag_json in API response |
+| June 16 2026 | **UI Bug Fixes** | **Save isDirty fix, auth redirect guard, full dark mode across all pages/components, dark mode toggle fix** |

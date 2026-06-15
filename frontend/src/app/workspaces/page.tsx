@@ -58,15 +58,15 @@ export default function WorkspacesPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <header className="bg-white border-b">
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-950">
+      <header className="bg-white dark:bg-gray-900 border-b dark:border-gray-800">
         <div className="max-w-3xl mx-auto px-6 py-4 flex items-center gap-3">
           <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center">
             <GitBranch size={18} className="text-white" />
           </div>
           <div>
-            <h1 className="text-xl font-bold text-gray-900">Workspaces</h1>
-            <p className="text-xs text-gray-500">Manage your AgentForge workspaces</p>
+            <h1 className="text-xl font-bold text-gray-900 dark:text-gray-100">Workspaces</h1>
+            <p className="text-xs text-gray-500 dark:text-gray-400">Manage your AgentForge workspaces</p>
           </div>
         </div>
       </header>
@@ -79,7 +79,7 @@ export default function WorkspacesPage() {
             value={newName}
             onChange={(e) => setNewName(e.target.value)}
             placeholder="New workspace name..."
-            className="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
           />
           <button
             type="submit"
@@ -92,19 +92,19 @@ export default function WorkspacesPage() {
         </form>
 
         {error && (
-          <div className="mb-4 text-sm text-red-600 bg-red-50 px-3 py-2 rounded-lg">
+          <div className="mb-4 text-sm text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/30 px-3 py-2 rounded-lg">
             {error}
           </div>
         )}
 
         {/* Workspace list */}
         {loading ? (
-          <div className="text-center py-12 text-gray-400">Loading workspaces...</div>
+          <div className="text-center py-12 text-gray-400 dark:text-gray-500">Loading workspaces...</div>
         ) : workspaces.length === 0 ? (
-          <div className="bg-white rounded-lg border p-12 text-center">
-            <Building2 size={32} className="text-gray-300 mx-auto mb-3" />
-            <h3 className="text-lg font-medium text-gray-700 mb-2">No workspaces yet</h3>
-            <p className="text-gray-500 text-sm">
+          <div className="bg-white dark:bg-gray-900 rounded-lg border dark:border-gray-700 p-12 text-center">
+            <Building2 size={32} className="text-gray-300 dark:text-gray-600 mx-auto mb-3" />
+            <h3 className="text-lg font-medium text-gray-700 dark:text-gray-300 mb-2">No workspaces yet</h3>
+            <p className="text-gray-500 dark:text-gray-400 text-sm">
               Create your first workspace to start building workflows.
             </p>
           </div>
@@ -114,14 +114,14 @@ export default function WorkspacesPage() {
               <button
                 key={ws.id}
                 onClick={() => selectWorkspace(ws)}
-                className="w-full bg-white rounded-lg border p-4 text-left hover:border-blue-300 hover:shadow-sm transition-all"
+                className="w-full bg-white dark:bg-gray-900 rounded-lg border dark:border-gray-700 p-4 text-left hover:border-blue-300 dark:hover:border-blue-600 hover:shadow-sm transition-all"
               >
                 <div className="flex items-center justify-between">
                   <div>
-                    <h3 className="font-medium text-gray-800">{ws.name}</h3>
-                    <p className="text-xs text-gray-500 mt-0.5">ID: {ws.id}</p>
+                    <h3 className="font-medium text-gray-800 dark:text-gray-200">{ws.name}</h3>
+                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">ID: {ws.id}</p>
                   </div>
-                  <span className="text-sm text-blue-600">Open →</span>
+                  <span className="text-sm text-blue-600 dark:text-blue-400">Open →</span>
                 </div>
               </button>
             ))}

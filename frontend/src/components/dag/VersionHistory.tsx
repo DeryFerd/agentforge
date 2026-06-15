@@ -65,10 +65,10 @@ export default function VersionHistory({ workflowId, onRestore }: Props) {
   };
 
   return (
-    <div className="border-t bg-white">
+    <div className="border-t dark:border-gray-700 bg-white dark:bg-gray-900">
       <button
         onClick={() => setExpanded(!expanded)}
-        className="w-full flex items-center justify-between px-4 py-2 text-sm text-gray-600 hover:bg-gray-50 transition-colors"
+        className="w-full flex items-center justify-between px-4 py-2 text-sm text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
       >
         <span className="flex items-center gap-2">
           <GitBranch size={14} />
@@ -80,27 +80,27 @@ export default function VersionHistory({ workflowId, onRestore }: Props) {
       {expanded && (
         <div className="px-4 pb-3">
           {loading ? (
-            <p className="text-xs text-gray-400 py-2">Loading versions...</p>
+            <p className="text-xs text-gray-400 dark:text-gray-500 py-2">Loading versions...</p>
           ) : versions.length === 0 ? (
-            <p className="text-xs text-gray-400 py-2">No version history available.</p>
+            <p className="text-xs text-gray-400 dark:text-gray-500 py-2">No version history available.</p>
           ) : (
             <div className="space-y-1 max-h-48 overflow-y-auto">
               {versions.map((v) => (
                 <div
                   key={v.id}
-                  className="flex items-center justify-between px-3 py-2 rounded bg-gray-50 hover:bg-gray-100 transition-colors"
+                  className="flex items-center justify-between px-3 py-2 rounded bg-gray-50 dark:bg-gray-800 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
                 >
                   <div className="flex items-center gap-2">
-                    <Clock size={12} className="text-gray-400" />
-                    <span className="text-xs font-medium text-gray-700">v{v.version_number}</span>
-                    <span className="text-xs text-gray-400">
+                    <Clock size={12} className="text-gray-400 dark:text-gray-500" />
+                    <span className="text-xs font-medium text-gray-700 dark:text-gray-300">v{v.version_number}</span>
+                    <span className="text-xs text-gray-400 dark:text-gray-500">
                       {new Date(v.created_at).toLocaleString()}
                     </span>
                   </div>
                   {v.version_number !== versions[0]?.version_number && (
                     <button
                       onClick={() => handleRestore(v)}
-                      className="flex items-center gap-1 text-xs text-blue-600 hover:text-blue-700"
+                      className="flex items-center gap-1 text-xs text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300"
                     >
                       <RotateCcw size={10} /> Restore
                     </button>

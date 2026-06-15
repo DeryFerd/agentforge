@@ -51,28 +51,28 @@ export default function TemplatesPage() {
   };
 
   const categoryColor: Record<string, string> = {
-    general: "bg-gray-100 text-gray-600",
-    classification: "bg-blue-100 text-blue-600",
-    extraction: "bg-purple-100 text-purple-600",
-    analysis: "bg-green-100 text-green-600",
-    content: "bg-pink-100 text-pink-600",
-    development: "bg-yellow-100 text-yellow-700",
-    qa: "bg-indigo-100 text-indigo-600",
-    quality: "bg-orange-100 text-orange-600",
-    research: "bg-teal-100 text-teal-600",
+    general: "bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300",
+    classification: "bg-blue-100 dark:bg-blue-900/40 text-blue-600 dark:text-blue-400",
+    extraction: "bg-purple-100 dark:bg-purple-900/40 text-purple-600 dark:text-purple-400",
+    analysis: "bg-green-100 dark:bg-green-900/40 text-green-600 dark:text-green-400",
+    content: "bg-pink-100 dark:bg-pink-900/40 text-pink-600 dark:text-pink-400",
+    development: "bg-yellow-100 dark:bg-yellow-900/40 text-yellow-700 dark:text-yellow-400",
+    qa: "bg-indigo-100 dark:bg-indigo-900/40 text-indigo-600 dark:text-indigo-400",
+    quality: "bg-orange-100 dark:bg-orange-900/40 text-orange-600 dark:text-orange-400",
+    research: "bg-teal-100 dark:bg-teal-900/40 text-teal-600 dark:text-teal-400",
   };
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <header className="bg-white border-b">
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-950">
+      <header className="bg-white dark:bg-gray-900 border-b dark:border-gray-800">
         <div className="max-w-6xl mx-auto px-6 py-4 flex items-center gap-3">
-          <a href="/" className="text-sm text-gray-500 hover:text-gray-700">← Dashboard</a>
+          <a href="/" className="text-sm text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200">← Dashboard</a>
           <div className="w-8 h-8 bg-emerald-600 rounded-lg flex items-center justify-center">
             <Package size={18} className="text-white" />
           </div>
           <div>
-            <h1 className="text-xl font-bold text-gray-900">Template Marketplace</h1>
-            <p className="text-xs text-gray-500">Browse and install pre-built agent templates</p>
+            <h1 className="text-xl font-bold text-gray-900 dark:text-gray-100">Template Marketplace</h1>
+            <p className="text-xs text-gray-500 dark:text-gray-400">Browse and install pre-built agent templates</p>
           </div>
         </div>
       </header>
@@ -81,12 +81,12 @@ export default function TemplatesPage() {
         {/* Search + Filter */}
         <div className="flex gap-3 mb-6">
           <form onSubmit={handleSearch} className="flex-1 relative">
-            <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+            <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 dark:text-gray-500" />
             <input
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder="Search templates..."
-              className="w-full pl-9 pr-3 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
+              className="w-full pl-9 pr-3 py-2 border dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
             />
           </form>
           <div className="flex gap-1 overflow-x-auto pb-1">
@@ -97,7 +97,7 @@ export default function TemplatesPage() {
                 className={`px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-colors ${
                   category === cat
                     ? "bg-emerald-600 text-white"
-                    : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+                    : "bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700"
                 }`}
               >
                 {cat.charAt(0).toUpperCase() + cat.slice(1)}
@@ -107,28 +107,28 @@ export default function TemplatesPage() {
         </div>
 
         {loading ? (
-          <div className="text-center py-12 text-gray-400">Loading templates...</div>
+          <div className="text-center py-12 text-gray-400 dark:text-gray-500">Loading templates...</div>
         ) : templates.length === 0 ? (
-          <div className="bg-white rounded-lg border p-12 text-center">
-            <Package size={32} className="text-gray-300 mx-auto mb-3" />
-            <h3 className="text-lg font-medium text-gray-700 mb-2">No templates found</h3>
-            <p className="text-gray-500 text-sm">
+          <div className="bg-white dark:bg-gray-900 rounded-lg border dark:border-gray-700 p-12 text-center">
+            <Package size={32} className="text-gray-300 dark:text-gray-600 mx-auto mb-3" />
+            <h3 className="text-lg font-medium text-gray-700 dark:text-gray-300 mb-2">No templates found</h3>
+            <p className="text-gray-500 dark:text-gray-400 text-sm">
               {search ? `No results for "${search}"` : "No templates in this category yet."}
             </p>
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {templates.map((template) => (
-              <div key={template.id} className="bg-white rounded-lg border p-5 hover:shadow-md transition-shadow">
+              <div key={template.id} className="bg-white dark:bg-gray-900 rounded-lg border dark:border-gray-700 p-5 hover:shadow-md transition-shadow">
                 <div className="flex items-start justify-between mb-3">
                   <div className="flex items-center gap-2">
-                    <div className="w-8 h-8 bg-emerald-100 rounded-lg flex items-center justify-center">
-                      <Package size={16} className="text-emerald-600" />
+                    <div className="w-8 h-8 bg-emerald-100 dark:bg-emerald-900/40 rounded-lg flex items-center justify-center">
+                      <Package size={16} className="text-emerald-600 dark:text-emerald-400" />
                     </div>
                     <div>
-                      <h3 className="font-medium text-gray-800 text-sm">{template.name}</h3>
+                      <h3 className="font-medium text-gray-800 dark:text-gray-200 text-sm">{template.name}</h3>
                       <div className="flex items-center gap-1.5 mt-0.5">
-                        <span className={`text-xs px-1.5 py-0.5 rounded ${categoryColor[template.category] || "bg-gray-100 text-gray-600"}`}>
+                        <span className={`text-xs px-1.5 py-0.5 rounded ${categoryColor[template.category] || "bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300"}`}>
                           {template.category}
                         </span>
                         {template.is_verified && (
@@ -137,15 +137,15 @@ export default function TemplatesPage() {
                       </div>
                     </div>
                   </div>
-                  <span className="text-xs text-gray-400">v{template.version}</span>
+                  <span className="text-xs text-gray-400 dark:text-gray-500">v{template.version}</span>
                 </div>
 
-                <p className="text-xs text-gray-500 mb-4 line-clamp-2">
+                <p className="text-xs text-gray-500 dark:text-gray-400 mb-4 line-clamp-2">
                   {template.description || "No description"}
                 </p>
 
                 <div className="flex items-center justify-between">
-                  <span className="text-xs text-gray-400 flex items-center gap-1">
+                  <span className="text-xs text-gray-400 dark:text-gray-500 flex items-center gap-1">
                     <Download size={10} /> {template.download_count}
                   </span>
                   <button

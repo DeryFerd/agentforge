@@ -33,7 +33,7 @@ export default function AgentForgeNode({ data, selected }: NodeProps) {
   return (
     <div
       className={clsx(
-        "rounded-lg border-2 bg-white shadow-md transition-all min-w-[180px]",
+        "rounded-lg border-2 bg-white dark:bg-gray-900 shadow-md transition-all min-w-[180px]",
         selected ? "shadow-lg ring-2 ring-blue-400" : "hover:shadow-lg"
       )}
       style={{ borderColor: color }}
@@ -43,13 +43,13 @@ export default function AgentForgeNode({ data, selected }: NodeProps) {
         <Handle
           type="target"
           position={Position.Top}
-          className="!w-3 !h-3 !bg-gray-400 !border-2 !border-white"
+          className="!w-3 !h-3 !bg-gray-400 dark:!bg-gray-500 !border-2 !border-white dark:!border-gray-900"
         />
       )}
 
       {/* Node header */}
       <div
-        className="flex items-center gap-2 px-3 py-2 rounded-t-md"
+        className="flex items-center gap-2 px-3 py-2 rounded-t-md dark:bg-opacity-20"
         style={{ backgroundColor: `${color}15` }}
       >
         <Icon size={16} style={{ color }} />
@@ -60,7 +60,7 @@ export default function AgentForgeNode({ data, selected }: NodeProps) {
 
       {/* Node body */}
       <div className="px-3 py-2">
-        <p className="text-sm font-medium text-gray-800 truncate">{label}</p>
+        <p className="text-sm font-medium text-gray-800 dark:text-gray-200 truncate">{label}</p>
       </div>
 
       {/* Output handle */}
@@ -68,7 +68,7 @@ export default function AgentForgeNode({ data, selected }: NodeProps) {
         <Handle
           type="source"
           position={Position.Bottom}
-          className="!w-3 !h-3 !bg-gray-400 !border-2 !border-white"
+          className="!w-3 !h-3 !bg-gray-400 dark:!bg-gray-500 !border-2 !border-white dark:!border-gray-900"
         />
       )}
     </div>

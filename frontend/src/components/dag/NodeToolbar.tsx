@@ -35,15 +35,15 @@ export default function NodeToolbar() {
   };
 
   return (
-    <div className="absolute top-4 left-4 z-10 flex flex-col gap-1 bg-white rounded-lg shadow-lg border p-2">
-      <p className="text-xs font-semibold text-gray-500 px-2 py-1 uppercase tracking-wide">
+    <div className="absolute top-4 left-4 z-10 flex flex-col gap-1 bg-white dark:bg-gray-900 rounded-lg shadow-lg border dark:border-gray-700 p-2">
+      <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 px-2 py-1 uppercase tracking-wide">
         Add Node
       </p>
       {nodeTypes.map(({ type, label, icon: Icon, color }) => (
         <button
           key={type}
           onClick={() => handleAdd(type)}
-          className="flex items-center gap-2 px-3 py-1.5 rounded-md text-sm text-gray-700 hover:bg-gray-100 transition-colors"
+          className="flex items-center gap-2 px-3 py-1.5 rounded-md text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
         >
           <Icon size={14} style={{ color }} />
           {label}

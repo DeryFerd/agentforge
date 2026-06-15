@@ -1,4 +1,5 @@
 @import "tailwindcss";
+@custom-variant dark (&:where(.dark, .dark *));
 
 :root {
   --background: #ffffff;
@@ -12,15 +13,34 @@
   --font-mono: var(--font-geist-mono);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+.dark {
+  --background: #0a0a0a;
+  --foreground: #ededed;
 }
 
 body {
   background: var(--background);
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
+}
+
+/* React Flow dark mode overrides */
+.dark .react-flow__background {
+  background: #111827 !important;
+}
+.dark .react-flow__minimap {
+  background: #1f2937 !important;
+  border-color: #374151 !important;
+}
+.dark .react-flow__controls {
+  background: #1f2937;
+  border-color: #374151;
+}
+.dark .react-flow__controls-button {
+  background: #1f2937;
+  border-color: #374151;
+  color: #d1d5db;
+}
+.dark .react-flow__controls-button:hover {
+  background: #374151;
 }

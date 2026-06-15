@@ -2,12 +2,13 @@
 
 "use client";
 
-import { useEffect, useCallback, useState } from "react";
+import { useEffect, useCallback, useState, Suspense } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import dynamic from "next/dynamic";
 import { useWorkflowStore } from "@/stores/workflow-store";
 import { Play, Save, CheckCircle, XCircle, AlertTriangle, Trash2, Loader2, Pencil } from "lucide-react";
 import { executionApi } from "@/lib/api";
+import DarkModeToggle from "@/components/DarkModeToggle";
 
 // Load DAGCanvas client-side only (React Flow needs DOM)
 const DAGCanvas = dynamic(() => import("@/components/dag/DAGCanvas"), {
@@ -25,6 +26,20 @@ const NodeConfigPanel = dynamic(() => import("@/components/dag/NodeConfigPanel")
 });
 
 export default function EditorPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="h-screen flex items-center justify-center bg-white dark:bg-gray-950">
+          <div className="text-gray-400 text-sm">Loading editor...</div>
+        </div>
+      }
+    >
+      <EditorContent />
+    </Suspense>
+  );
+}
+
+function EditorContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const urlWorkflowId = searchParams.get("id");
@@ -49,13 +64,24 @@ export default function EditorPage() {
   const [isEditingName, setIsEditingName] = useState(false);
   const [nameInput, setNameInput] = useState(workflowName);
   const [runMessage, setRunMessage] = useState<string | null>(null);
+  const [authChecked, setAuthChecked] = useState(false);
 
-  // Load workflow from URL param on mount
+  // Auth guard
   useEffect(() => {
-    if (urlWorkflowId) {
+    const token = localStorage.getItem("access_token");
+    if (!token) {
+      router.replace("/login");
+    } else {
+      setAuthChecked(true);
+    }
+  }, [router]);
+
+  // Load workflow from URL param on mount (only after auth)
+  useEffect(() => {
+    if (authChecked && urlWorkflowId) {
       loadWorkflow(urlWorkflowId);
     }
-  }, [urlWorkflowId, loadWorkflow]);
+  }, [authChecked, urlWorkflowId, loadWorkflow]);
 
   // After first save, update URL with the new workflow ID
   useEffect(() => {
@@ -162,12 +188,21 @@ export default function EditorPage() {
     }
   };
 
+  // Show nothing while auth is being checked
+  if (!authChecked) {
+    return (
+      <div className="h-screen flex items-center justify-center bg-white dark:bg-gray-950">
+        <div className="text-gray-400 text-sm">Loading...</div>
+      </div>
+    );
+  }
+
   return (
-    <div className="h-screen flex flex-col bg-white">
+    <div className="h-screen flex flex-col bg-white dark:bg-gray-950">
       {/* Top bar */}
-      <header className="flex items-center justify-between px-4 py-2 border-b bg-white z-20">
+      <header className="flex items-center justify-between px-4 py-2 border-b dark:border-gray-800 bg-white dark:bg-gray-900 z-20">
         <div className="flex items-center gap-3">
-          <a href="/" className="text-sm text-gray-500 hover:text-gray-700">
+          <a href="/" className="text-sm text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200">
             ← Back
           </a>
 
@@ -178,20 +213,20 @@ export default function EditorPage() {
               onChange={(e) => setNameInput(e.target.value)}
               onBlur={commitName}
               onKeyDown={(e) => e.key === "Enter" && commitName()}
-              className="text-lg font-semibold text-gray-800 bg-gray-100 rounded px-2 py-0.5 border border-gray-300 outline-none focus:border-blue-500"
+              className="text-lg font-semibold text-gray-800 dark:text-gray-200 bg-gray-100 dark:bg-gray-800 rounded px-2 py-0.5 border border-gray-300 dark:border-gray-600 outline-none focus:border-blue-500"
             />
           ) : (
             <button
               onClick={() => setIsEditingName(true)}
-              className="flex items-center gap-1.5 text-lg font-semibold text-gray-800 hover:text-blue-600 transition-colors"
+              className="flex items-center gap-1.5 text-lg font-semibold text-gray-800 dark:text-gray-200 hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
             >
               {workflowName}
-              <Pencil size={12} className="text-gray-400" />
+              <Pencil size={12} className="text-gray-400 dark:text-gray-500" />
             </button>
           )}
 
           {isDirty && (
-            <span className="text-xs bg-yellow-100 text-yellow-700 px-2 py-0.5 rounded-full">
+            <span className="text-xs bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-400 px-2 py-0.5 rounded-full">
               Unsaved
             </span>
           )}
@@ -211,13 +246,13 @@ export default function EditorPage() {
         <div className="flex items-center gap-2">
           <a
             href={`/executions${storeWorkflowId ? `?workflow_id=${storeWorkflowId}` : ""}`}
-            className="flex items-center gap-1.5 px-3 py-1.5 text-sm rounded-md bg-gray-100 hover:bg-gray-200 text-gray-700 transition-colors"
+            className="flex items-center gap-1.5 px-3 py-1.5 text-sm rounded-md bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300 transition-colors"
           >
             History
           </a>
           <button
             onClick={handleValidate}
-            className="flex items-center gap-1.5 px-3 py-1.5 text-sm rounded-md bg-gray-100 hover:bg-gray-200 text-gray-700 transition-colors"
+            className="flex items-center gap-1.5 px-3 py-1.5 text-sm rounded-md bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300 transition-colors"
           >
             <CheckCircle size={14} />
             Validate
@@ -237,12 +272,13 @@ export default function EditorPage() {
             <Play size={14} />
             Run
           </button>
+          <DarkModeToggle />
         </div>
       </header>
 
       {/* Run message */}
       {runMessage && (
-        <div className="px-4 py-2 bg-blue-50 text-blue-700 text-sm border-b">
+        <div className="px-4 py-2 bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 text-sm border-b dark:border-gray-800">
           {runMessage}
         </div>
       )}
@@ -258,8 +294,8 @@ export default function EditorPage() {
       {/* Validation bar */}
       {validation && (
         <div
-          className={`px-4 py-2 border-t text-sm flex items-center gap-2 flex-wrap ${
-            validation.valid ? "bg-green-50 text-green-700" : "bg-red-50 text-red-700"
+          className={`px-4 py-2 border-t dark:border-gray-800 text-sm flex items-center gap-2 flex-wrap ${
+            validation.valid ? "bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-400" : "bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-400"
           }`}
         >
           {validation.valid ? <CheckCircle size={14} /> : <XCircle size={14} />}
