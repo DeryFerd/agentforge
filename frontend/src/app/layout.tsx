@@ -3,6 +3,10 @@ import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import ErrorBoundaryWrapper from "@/components/ErrorBoundaryWrapper";
 
+// Force dynamic rendering so middleware auth guard runs before any page HTML is sent.
+// Without this, static pages are served from cache before middleware can redirect.
+export const dynamic = "force-dynamic";
+
 const geistSans = Geist({
   variable: "--font-geist-sans",
   subsets: ["latin"],
