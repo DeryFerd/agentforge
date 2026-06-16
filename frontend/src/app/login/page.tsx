@@ -32,7 +32,13 @@ export default function LoginPage() {
       localStorage.setItem("access_token", access_token);
       localStorage.setItem("refresh_token", refresh_token);
 
-      router.push("/");
+      // Also set as cookie for server-side middleware auth check
+      document.cookie = `access_token=${access_token}; path=/; max-age=${60 * 60 * 24 * 7}; SameSite=Lax`;
+      document.cookie = `refresh_token=${refresh_token}; path=/; max-age=${60 * 60 * 24 * 7}; SameSite=Lax`;
+
+      // Redirect to original page or dashboard
+      const params = new URLSearchParams(window.location.search);
+      router.push(params.get("redirect") || "/");
     } catch (err: unknown) {
       if (err && typeof err === "object" && "response" in err) {
         const apiErr = err as { response?: { data?: { detail?: string } } };

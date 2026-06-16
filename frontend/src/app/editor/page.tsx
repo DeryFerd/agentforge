@@ -64,24 +64,13 @@ function EditorContent() {
   const [isEditingName, setIsEditingName] = useState(false);
   const [nameInput, setNameInput] = useState(workflowName);
   const [runMessage, setRunMessage] = useState<string | null>(null);
-  const [authChecked, setAuthChecked] = useState(false);
 
-  // Auth guard
+  // Load workflow from URL param on mount
   useEffect(() => {
-    const token = localStorage.getItem("access_token");
-    if (!token) {
-      router.replace("/login");
-    } else {
-      setAuthChecked(true);
-    }
-  }, [router]);
-
-  // Load workflow from URL param on mount (only after auth)
-  useEffect(() => {
-    if (authChecked && urlWorkflowId) {
+    if (urlWorkflowId) {
       loadWorkflow(urlWorkflowId);
     }
-  }, [authChecked, urlWorkflowId, loadWorkflow]);
+  }, [urlWorkflowId, loadWorkflow]);
 
   // After first save, update URL with the new workflow ID
   useEffect(() => {
@@ -187,15 +176,6 @@ function EditorContent() {
       useWorkflowStore.getState().setDirty(true);
     }
   };
-
-  // Show nothing while auth is being checked
-  if (!authChecked) {
-    return (
-      <div className="h-screen flex items-center justify-center bg-white dark:bg-gray-950">
-        <div className="text-gray-400 text-sm">Loading...</div>
-      </div>
-    );
-  }
 
   return (
     <div className="h-screen flex flex-col bg-white dark:bg-gray-950">

@@ -4,7 +4,7 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { Plus, GitBranch, Play, Settings, ExternalLink, LogIn, LogOut, Trash2, Clock, Server, Package, DollarSign, Key } from "lucide-react";
+import { Plus, GitBranch, Play, Settings, ExternalLink, LogOut, Trash2, Clock, Server, Package, DollarSign } from "lucide-react";
 import { useWorkflowStore } from "@/stores/workflow-store";
 import { workflowApi } from "@/lib/api";
 import type { Workflow } from "@/lib/types";
@@ -17,20 +17,9 @@ export default function DashboardPage() {
   const [workflows, setWorkflows] = useState<Workflow[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [authChecked, setAuthChecked] = useState(false);
 
   const currentWorkspace = typeof window !== "undefined" ? localStorage.getItem("current_workspace_id") : null;
   const workspaceName = typeof window !== "undefined" ? localStorage.getItem("current_workspace_name") : null;
-
-  // Auth guard — redirect to login if not authenticated
-  useEffect(() => {
-    const token = localStorage.getItem("access_token");
-    if (!token) {
-      router.replace("/login");
-    } else {
-      setAuthChecked(true);
-    }
-  }, [router]);
 
   const fetchWorkflows = async () => {
     try {
@@ -44,17 +33,8 @@ export default function DashboardPage() {
   };
 
   useEffect(() => {
-    if (authChecked) fetchWorkflows();
-  }, [authChecked, currentWorkspace]);
-
-  // Show nothing while auth is being checked (prevents flash)
-  if (!authChecked) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-950">
-        <div className="text-gray-400 text-sm">Loading...</div>
-      </div>
-    );
-  }
+    fetchWorkflows();
+  }, [currentWorkspace]);
 
   const handleNewWorkflow = () => {
     reset();
@@ -80,6 +60,9 @@ export default function DashboardPage() {
     localStorage.removeItem("refresh_token");
     localStorage.removeItem("current_workspace_id");
     localStorage.removeItem("current_workspace_name");
+    // Clear auth cookies for middleware
+    document.cookie = "access_token=; path=/; max-age=0";
+    document.cookie = "refresh_token=; path=/; max-age=0";
     router.push("/login");
   };
 
@@ -127,21 +110,12 @@ export default function DashboardPage() {
               Langfuse <ExternalLink size={12} />
             </a>
             <DarkModeToggle />
-            {authChecked ? (
-              <button
-                onClick={handleLogout}
-                className="flex items-center gap-1 text-sm text-gray-500 dark:text-gray-400 hover:text-red-600 transition-colors"
-              >
-                <LogOut size={14} /> Sign Out
-              </button>
-            ) : (
-              <a
-                href="/login"
-                className="flex items-center gap-1 text-sm text-blue-600 hover:text-blue-700 transition-colors"
-              >
-                <LogIn size={14} /> Sign In
-              </a>
-            )}
+            <button
+              onClick={handleLogout}
+              className="flex items-center gap-1 text-sm text-gray-500 dark:text-gray-400 hover:text-red-600 transition-colors"
+            >
+              <LogOut size={14} /> Sign Out
+            </button>
           </div>
         </div>
       </header>
