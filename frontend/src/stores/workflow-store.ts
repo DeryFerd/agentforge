@@ -90,20 +90,24 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
 
   addNode: (type, position) => {
     nodeCounter += 1;
+    const state = get();
+    // Count existing nodes of the SAME type for per-type numbering (Agent 1, Tool 1, Agent 2, etc.)
+    const sameTypeCount = state.nodes.filter((n) => n.data?.nodeType === type).length;
+    const typeNumber = sameTypeCount + 1;
     const id = `${type}_${Date.now()}_${nodeCounter}`;
     const newNode: Node = {
       id,
       type: "agentForgeNode",
       position,
       data: {
-        label: `${type.charAt(0).toUpperCase() + type.slice(1)} ${nodeCounter}`,
+        label: `${type.charAt(0).toUpperCase() + type.slice(1)} ${typeNumber}`,
         nodeType: type,
         color: nodeColors[type],
         config: defaultNodeConfigs[type],
       },
     };
-    set((state) => ({
-      nodes: [...state.nodes, newNode],
+    set((s) => ({
+      nodes: [...s.nodes, newNode],
       isDirty: true,
     }));
   },
@@ -272,6 +276,7 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
           source: edge.source,
           target: edge.target,
           animated: true,
+          type: "smoothstep",
         };
       });
 

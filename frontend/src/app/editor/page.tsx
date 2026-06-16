@@ -101,6 +101,28 @@ function EditorContent() {
     return () => window.removeEventListener("keydown", handler);
   }, [handleSave]);
 
+  // Warn before closing/tab navigation if there are unsaved changes
+  useEffect(() => {
+    const handler = (e: BeforeUnloadEvent) => {
+      if (useWorkflowStore.getState().isDirty) {
+        e.preventDefault();
+      }
+    };
+    window.addEventListener("beforeunload", handler);
+    return () => window.removeEventListener("beforeunload", handler);
+  }, []);
+
+  // Back button with unsaved changes warning
+  const handleBack = () => {
+    if (isDirty) {
+      const confirmed = window.confirm(
+        "You have unsaved changes. Are you sure you want to leave?"
+      );
+      if (!confirmed) return;
+    }
+    router.push("/");
+  };
+
   // Validate handler
   const handleValidate = async () => {
     const dag = {
@@ -182,9 +204,12 @@ function EditorContent() {
       {/* Top bar */}
       <header className="flex items-center justify-between px-4 py-2 border-b dark:border-gray-800 bg-white dark:bg-gray-900 z-20">
         <div className="flex items-center gap-3">
-          <a href="/" className="text-sm text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200">
+          <button
+            onClick={handleBack}
+            className="text-sm text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 transition-colors"
+          >
             ← Back
-          </a>
+          </button>
 
           {isEditingName ? (
             <input

@@ -38,11 +38,11 @@ export default function AgentForgeNode({ data, selected }: NodeProps) {
       )}
       style={{ borderColor: color }}
     >
-      {/* Input handle */}
+      {/* Input handle — left side */}
       {nodeType !== "input" && (
         <Handle
           type="target"
-          position={Position.Top}
+          position={Position.Left}
           className="!w-3 !h-3 !bg-gray-400 dark:!bg-gray-500 !border-2 !border-white dark:!border-gray-900"
         />
       )}
@@ -63,11 +63,11 @@ export default function AgentForgeNode({ data, selected }: NodeProps) {
         <p className="text-sm font-medium text-gray-800 dark:text-gray-200 truncate">{label}</p>
       </div>
 
-      {/* Output handle */}
+      {/* Output handle — right side */}
       {nodeType !== "output" && (
         <Handle
           type="source"
-          position={Position.Bottom}
+          position={Position.Right}
           className="!w-3 !h-3 !bg-gray-400 dark:!bg-gray-500 !border-2 !border-white dark:!border-gray-900"
         />
       )}

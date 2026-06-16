@@ -71,7 +71,10 @@ export default function DAGCanvas() {
   // Handle new connections (edges between nodes)
   const onConnect = useCallback(
     (connection: Connection) => {
-      const newEdges = addEdge({ ...connection, animated: true }, edges);
+      const newEdges = addEdge(
+        { ...connection, animated: true, type: "smoothstep" },
+        edges
+      );
       setStoreEdges(newEdges as Edge[]);
     },
     [edges, setStoreEdges]
