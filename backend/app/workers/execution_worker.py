@@ -251,11 +251,11 @@ async def _emit_ws_event(run_id: str, event: dict) -> None:
 
 
 async def worker_loop() -> None:
-    """Main worker loop — polls Redis for execution jobs with graceful shutdown."""
-    # Register signal handlers for graceful shutdown
-    signal.signal(signal.SIGTERM, _handle_signal)
-    signal.signal(signal.SIGINT, _handle_signal)
-
+    """Main worker loop — polls Redis for execution jobs with graceful shutdown.
+    
+    Can be run standalone (python -m app.workers.execution_worker) or embedded
+    in FastAPI's lifespan as an asyncio task.
+    """
     logger.info("Execution worker started")
     redis_client = redis.from_url(settings.redis_url, decode_responses=True)
 
@@ -279,7 +279,9 @@ async def worker_loop() -> None:
 
 
 async def main():
-    """Entry point for the execution worker."""
+    """Entry point for standalone execution worker."""
+    signal.signal(signal.SIGTERM, _handle_signal)
+    signal.signal(signal.SIGINT, _handle_signal)
     await worker_loop()
 
 

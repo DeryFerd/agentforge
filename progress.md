@@ -67,6 +67,16 @@
 | Dark mode not implemented | All 8 pages + 5 DAG components used hardcoded light colors (`bg-white`, `text-gray-900`) with no `dark:` Tailwind variants | Added `dark:` classes to all pages/components; added `@custom-variant dark` to `globals.css` for Tailwind v4 class-based dark mode; DarkModeToggle added to dashboard + editor headers |
 | Dark mode toggle stuck on dark (can't switch back to light) | (1) Tailwind v4 defaults to `prefers-color-scheme` media query, ignoring `.dark` class; (2) Next.js React reconciliation resets `<html>` className on re-renders, wiping the `.dark` class | (1) Added `@custom-variant dark (&:where(.dark, .dark *))` to globals.css; (2) Toggle targets `<body>` instead of `<html>` since body isn't reconciled by React |
 
+## UX Polish + Execution Fix (June 18)
+
+| Issue | Root Cause | Fix |
+|---|---|---|
+| Node numbering is global (Agent 1, Tool 2, Router 3) | Single `nodeCounter` incremented for all node types | Per-type counting: filter existing nodes by type, increment per-type (`Agent 1, Tool 1, Agent 2`) |
+| Edge routing looks curved/pulled upward | Handles at Top/Bottom positions with bezier edges | Moved handles to Left/Right + `smoothstep` edge type for clean horizontal flow |
+| No warning when clicking Back with unsaved changes | "Back" was a plain `<a>` link with no dirty check | Converted to `<button>` with `window.confirm()` when `isDirty`; added `beforeunload` listener for tab close |
+| Workflows stay in "queued" status forever | Execution worker was a separate process that was never started | Embedded worker as asyncio task in FastAPI lifespan with lazy import; worker starts automatically with backend |
+| LLM calls fail with "OPENAI_API_KEY not configured" | No LLM provider configured in `.env` | Added `OPENAI_BASE_URL` config for OpenAI-compatible APIs; integrated Ollama Cloud (`https://ollama.com/v1`) |
+
 ---
 
 ## Changelog
@@ -80,4 +90,5 @@
 | June 13 2026 | Roast Fixes | Kill eval(), real HITL, OTel spans wired, engine tests, testcontainers, WebSocket leak, Docker fix, ADRs |
 | June 15 2026 | Live Debug | langfuse v4, setuptools, bcrypt, auth 401, Docker + migrations + full stack verified |
 | June 15 2026 | E2E Bug Fixes | 4 critical E2E bugs fixed: React Flow state sync, auto-create workspace, URL sync after save, dag_json in API response |
-| June 16 2026 | **UI Bug Fixes** | **Save isDirty fix, auth redirect guard, full dark mode across all pages/components, dark mode toggle fix** |
+| June 16 2026 | UI Bug Fixes | Save isDirty fix, auth redirect guard, full dark mode across all pages/components, dark mode toggle fix |
+| June 18 2026 | **UX Polish + Execution** | **Per-type node numbering, left/right handles, unsaved warning, execution worker embedded in lifespan, Ollama Cloud LLM integration** |

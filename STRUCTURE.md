@@ -279,7 +279,7 @@ docker compose down -v
 
 | File | Purpose | Imports / Uses | Used By |
 |---|---|---|---|
-| `app/main.py` | FastAPI app, middleware stack, WebSocket with Redis pub/sub relay (roast fix: no connection leak), lifespan with OTel + Langfuse init | `config.py`, `rate_limit.py`, `security_middleware.py`, `router.py`, `tracing.py`, `langfuse_integration.py`, `redis.asyncio` | Uvicorn, Docker |
+| `app/main.py` | FastAPI app, middleware stack, WebSocket with Redis pub/sub relay (roast fix: no connection leak), lifespan with OTel + Langfuse init + **execution worker (lazy import)** | `config.py`, `rate_limit.py`, `security_middleware.py`, `router.py`, `tracing.py`, `langfuse_integration.py`, `execution_worker.py`, `redis.asyncio` | Uvicorn, Docker |
 | `Dockerfile` | Python 3.12 image for API + Worker | `pyproject.toml` | `docker-compose.yml` |
 | `.dockerignore` | Excludes __pycache__, .git, tests, *.md from build | Docker build | — |
 | `pyproject.toml` | Dependencies + tool config. **Key deps:** `simpleeval`, `bcrypt` (direct), `testcontainers[postgres]` | — | `pip install` |
@@ -317,7 +317,7 @@ docker compose down -v
 |---|---|---|---|
 | `compiler.py` | `WorkflowCompiler` — transforms DAG JSON → LangGraph `StateGraph` | `langgraph` | `execution_worker.py` |
 | `executors.py` | 7 node executors with **OTel spans** (`_wrap_with_span()`), **simpleeval** routing (no `eval()`), **real HITL** (Redis polling), **evaluator cost tracking** | `llm_client.py`, `mcp/client.py`, `simpleeval`, `services/tracing.py`, `redis.asyncio` | `compiler.py` (via `get_default_executors()`) |
-| `llm_client.py` | `call_llm()` — unified OpenAI/Anthropic/Google client with per-model cost calculation | `langchain_openai`, `langchain_anthropic`, `langchain_google_genai`, `config.py` | `executors.py` (AgentNodeExecutor, EvaluatorNodeExecutor) |
+| `llm_client.py` | `call_llm()` — unified OpenAI/Anthropic/Google client with per-model cost calculation + **`OPENAI_BASE_URL` support** for Ollama Cloud | `langchain_openai`, `langchain_anthropic`, `langchain_google_genai`, `config.py` | `executors.py` (AgentNodeExecutor, EvaluatorNodeExecutor) |
 | `validator.py` | `DAGValidator` — cycle detection (Kahn's algorithm), orphan nodes, type/config checks | — | `workflows.py` (validate endpoint) |
 | `checkpointer.py` | `get_checkpointer()` — PostgreSQL checkpointer for LangGraph crash recovery | `langgraph.checkpoint.postgres`, `config.py` | `execution_worker.py` |
 
@@ -346,7 +346,7 @@ docker compose down -v
 
 | File | Purpose | Uses |
 |---|---|---|
-| `execution_worker.py` | Redis BLPOP loop → budget check → compile (LangGraph) → execute nodes with **OTel spans** → persist results + cost records + **Langfuse traces** → **WebSocket events via Redis pub/sub** → graceful shutdown (SIGTERM) | `compiler.py`, `executors.py`, `checkpointer.py`, `database.py`, `tracing.py`, `langfuse_integration.py`, `budget.py`, `webhook_delivery.py`, `redis.asyncio` |
+| `execution_worker.py` | Redis BLPOP loop → budget check → compile (LangGraph) → execute nodes with **OTel spans** → persist results + cost records + **Langfuse traces** → **WebSocket events via Redis pub/sub** — **embedded as `asyncio.Task` in `main.py` lifespan** (lazy import) | `compiler.py`, `executors.py`, `checkpointer.py`, `database.py`, `tracing.py`, `langfuse_integration.py`, `budget.py`, `webhook_delivery.py`, `redis.asyncio` |
 
 #### MCP — `backend/app/mcp/`
 

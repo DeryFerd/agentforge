@@ -131,8 +131,23 @@ async def lifespan(app: FastAPI):
     # Start WebSocket relay (Redis pub/sub)
     await ws_manager.start_relay()
 
+    # Start execution worker (picks up jobs from Redis queue)
+    # Lazy import to avoid blocking app startup with heavy engine deps
+    async def _start_worker():
+        from app.workers.execution_worker import worker_loop
+        await worker_loop()
+
+    worker_task = asyncio.create_task(_start_worker())
+
     logger.info("AgentForge starting up", version=settings.app_version)
     yield
+
+    # Stop execution worker
+    worker_task.cancel()
+    try:
+        await worker_task
+    except asyncio.CancelledError:
+        pass
 
     # Flush Langfuse
     from app.services.langfuse_integration import flush as langfuse_flush

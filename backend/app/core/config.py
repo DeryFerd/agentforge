@@ -42,6 +42,7 @@ class Settings(BaseSettings):
 
     # --- LLM Providers ---
     openai_api_key: str = ""
+    openai_base_url: str = ""  # Custom base URL for OpenAI-compatible APIs (e.g., Ollama)
     anthropic_api_key: str = ""
     google_api_key: str = ""
 

@@ -30,6 +30,10 @@ MODEL_PRICING: dict[str, tuple[float, float]] = {
     "gpt-4.1": (2.00, 8.00),
     "gpt-4.1-mini": (0.40, 1.60),
     "gpt-4.1-nano": (0.10, 0.40),
+    "gpt-oss:20b-cloud": (0.0, 0.0),
+    "gpt-oss:120b-cloud": (0.0, 0.0),
+    "qwen3-coder:480b-cloud": (0.0, 0.0),
+    "deepseek-v3.1:671b-cloud": (0.0, 0.0),
     "o3-mini": (1.10, 4.40),
     "claude-sonnet-4-20250514": (3.00, 15.00),
     "claude-3-5-sonnet-20241022": (3.00, 15.00),
@@ -60,11 +64,15 @@ def _get_chat_model(provider: str, model_id: str, temperature: float = 0.3) -> A
     if provider == "openai":
         if not settings.openai_api_key:
             raise ValueError("OPENAI_API_KEY not configured")
-        return ChatOpenAI(
-            model=model_id,
-            temperature=temperature,
-            api_key=settings.openai_api_key,
-        )
+        kwargs = {
+            "model": model_id,
+            "temperature": temperature,
+            "api_key": settings.openai_api_key,
+        }
+        # Support custom base URL for OpenAI-compatible APIs (e.g., Ollama)
+        if settings.openai_base_url:
+            kwargs["base_url"] = settings.openai_base_url
+        return ChatOpenAI(**kwargs)
     elif provider == "anthropic":
         if not settings.anthropic_api_key:
             raise ValueError("ANTHROPIC_API_KEY not configured")
