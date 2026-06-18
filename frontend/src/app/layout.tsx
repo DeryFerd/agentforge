@@ -63,7 +63,7 @@ export default function RootLayout({
               // Dark mode: apply .dark class to body before paint
               try {
                 if (localStorage.theme === 'dark' || (!('theme' in localStorage) && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
-                  document.documentElement.classList.add('dark');
+                  document.body.classList.add('dark');
                 }
               } catch (_) {}
 
