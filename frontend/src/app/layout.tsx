@@ -38,10 +38,32 @@ export default function RootLayout({
         <script
           dangerouslySetInnerHTML={{
             __html: `
+              // Auth gate: hide page content until auth is verified (prevents dashboard flash)
+              // This runs in <head> BEFORE body paint, so nothing is visible.
+              (function() {
+                var isLoginPage = window.location.pathname === '/login';
+                if (!isLoginPage) {
+                  // Check cookie for access_token (same as middleware)
+                  var hasToken = document.cookie.split(';').some(function(c) {
+                    return c.trim().indexOf('access_token=') === 0 && c.trim() !== 'access_token=';
+                  });
+                  if (!hasToken) {
+                    // Add style to hide body before it paints
+                    var s = document.createElement('style');
+                    s.id = '__auth_hide';
+                    s.textContent = 'body{display:none!important}';
+                    document.head.appendChild(s);
+                    // Redirect immediately
+                    window.location.replace('/login');
+                    return;
+                  }
+                }
+              })();
+
               // Dark mode: apply .dark class to body before paint
               try {
                 if (localStorage.theme === 'dark' || (!('theme' in localStorage) && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
-                  document.body.classList.add('dark');
+                  document.documentElement.classList.add('dark');
                 }
               } catch (_) {}
 

@@ -14,19 +14,22 @@ export default function DashboardPage() {
   const router = useRouter();
   const reset = useWorkflowStore((s) => s.reset);
 
+  const [authChecked, setAuthChecked] = useState(false);
   const [workflows, setWorkflows] = useState<Workflow[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // Client-side auth safety net — runs synchronously during render (before any DOM output)
-  // This catches cases where server middleware might not run (e.g., Chrome prerendering)
-  if (typeof window !== "undefined" && !localStorage.getItem("access_token")) {
-    window.location.href = "/login";
-    return null;
-  }
-
   const currentWorkspace = typeof window !== "undefined" ? localStorage.getItem("current_workspace_id") : null;
   const workspaceName = typeof window !== "undefined" ? localStorage.getItem("current_workspace_name") : null;
+
+  // Client-side auth safety net — redirect if no token, otherwise reveal content
+  useEffect(() => {
+    if (!localStorage.getItem("access_token")) {
+      window.location.replace("/login");
+      return;
+    }
+    setAuthChecked(true);
+  }, []);
 
   const fetchWorkflows = async () => {
     try {
@@ -40,8 +43,9 @@ export default function DashboardPage() {
   };
 
   useEffect(() => {
+    if (!authChecked) return;
     fetchWorkflows();
-  }, [currentWorkspace]);
+  }, [authChecked, currentWorkspace]);
 
   const handleNewWorkflow = () => {
     reset();
@@ -72,6 +76,9 @@ export default function DashboardPage() {
     document.cookie = "refresh_token=; path=/; max-age=0";
     router.push("/login");
   };
+
+  // Don't render anything until auth is verified — prevents dashboard flash
+  if (!authChecked) return null;
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-950">
