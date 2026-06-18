@@ -18,6 +18,13 @@ export default function DashboardPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  // Client-side auth safety net — runs synchronously during render (before any DOM output)
+  // This catches cases where server middleware might not run (e.g., Chrome prerendering)
+  if (typeof window !== "undefined" && !localStorage.getItem("access_token")) {
+    window.location.href = "/login";
+    return null;
+  }
+
   const currentWorkspace = typeof window !== "undefined" ? localStorage.getItem("current_workspace_id") : null;
   const workspaceName = typeof window !== "undefined" ? localStorage.getItem("current_workspace_name") : null;
 

@@ -38,11 +38,20 @@ export default function RootLayout({
         <script
           dangerouslySetInnerHTML={{
             __html: `
+              // Dark mode: apply .dark class to body before paint
               try {
                 if (localStorage.theme === 'dark' || (!('theme' in localStorage) && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
                   document.body.classList.add('dark');
                 }
               } catch (_) {}
+
+              // Bfcache fix: if page is restored from Chrome's back-forward cache,
+              // reload to ensure middleware auth check runs (prevents stale HTML flash)
+              window.addEventListener('pageshow', function(event) {
+                if (event.persisted) {
+                  window.location.reload();
+                }
+              });
             `,
           }}
         />
