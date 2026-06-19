@@ -57,6 +57,9 @@ export const workflowApi = {
   list: (workspace_id?: string) =>
     api.get<Workflow[]>("/workflows", { params: workspace_id ? { workspace_id } : {} }),
 
+  dashboardSummary: (workspace_id?: string) =>
+    api.get<{ workflows: (Workflow & { execution_count: number; last_run_at: string | null; last_execution_status: string | null; total_cost_usd: number })[] }>("/workflows/dashboard/summary", { params: workspace_id ? { workspace_id } : {} }),
+
   get: (id: string) => api.get<Workflow>(`/workflows/${id}`),
 
   create: (data: { workspace_id: string; name: string; description?: string; dag_json?: object }) =>

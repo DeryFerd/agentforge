@@ -288,10 +288,12 @@ docker compose down -v
 
 | File | Purpose | Imports / Uses | Used By |
 |---|---|---|---|
-| `config.py` | `Settings` class (pydantic-settings), `get_settings()` | `.env` file | Every module |
-| `database.py` | Async SQLAlchemy engine, `Base`, `get_db()` dependency | `config.py` (DATABASE_URL) | All routers, models, Alembic |
+| `config.py` | `Settings` class (pydantic-settings), `get_settings()`, **includes `openai_base_url`** for Ollama Cloud | `.env` file | Every module |
+| `database.py` | Async SQLAlchemy engine, `Base`, `get_db()` dependency, `async_session_factory` | `config.py` (DATABASE_URL) | All routers, models, Alembic, **seed scripts** |
 | `deps.py` | `get_current_user` (Header optional → 401), `RequireRole`, `log_audit()` | `security.py`, `database.py`, `user.py`, `workspace.py` | All auth-protected endpoints |
 | `security.py` | `hash_password()`, `verify_password()` (bcrypt direct), `create_access_token()`, `create_refresh_token()`, `decode_token()` | `config.py` (JWT settings) | `auth.py`, `deps.py`, `oauth.py` |
+| `seed_templates.py` | **Idempotent** seed of 8 built-in agent templates (Summarizer, Code Reviewer, etc.) with system user ownership | `database.py`, `misc.py` (AgentTemplate), `user.py` | `main.py` (lifespan) |
+| `seed_mcp_servers.py` | **Idempotent** seed of 3 built-in MCP servers (filesystem, web-search, postgres) with default workspace | `database.py`, `misc.py` (MCPServer), `workspace.py` | `main.py` (lifespan) |
 | `rate_limit.py` | `RateLimitMiddleware` — per-IP, API key bypass | `config.py` | `main.py` |
 | `security_middleware.py` | `SecurityHeadersMiddleware` (OWASP: X-Frame-Options, nosniff, CSP), `InputSanitizer`, `validate_dag_structure()` | — | `main.py`, `workflows.py` |
 
@@ -303,7 +305,7 @@ docker compose down -v
 | `auth.py` | `/auth` | POST register, login, refresh; GET /me | `user.User` | `deps.py`, `security.py`, `database.py` |
 | `oauth.py` | `/auth/oauth` | GET/POST github/*, google/* | `user.User`, `workspace.*` | `security.py`, `database.py`, `config.py` |
 | `workspaces.py` | `/workspaces` | CRUD + member invite/list | `workspace.*` | `deps.py`, `database.py` |
-| `workflows.py` | `/workflows` | CRUD + validate + export + import | `workflow.*` | `deps.py`, `database.py`, `validator.py`, `security_middleware.py` |
+| `workflows.py` | `/workflows` | CRUD + validate + export + import + **dashboard/summary** (execution stats + costs per workflow) | `workflow.*`, `execution.*`, `misc.CostRecord` | `deps.py`, `database.py`, `validator.py`, `security_middleware.py` |
 | `executions.py` | `/executions` | trigger, list, get, trace, cancel | `execution.*`, `workflow.*` | `deps.py`, `database.py`, Redis |
 | `templates.py` | `/templates` | CRUD + search | `misc.AgentTemplate` | `deps.py`, `database.py` |
 | `mcp_servers.py` | `/mcp-servers` | register, list, delete, health | `misc.MCPServer` | `deps.py`, `database.py` |

@@ -4,11 +4,13 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
 from app.core.deps import get_current_user
+from app.models.execution import Execution
+from app.models.misc import CostRecord
 from app.models.user import User
 from app.models.workflow import Workflow
 
@@ -229,3 +231,65 @@ async def import_workflow(
     await db.flush()
     await db.refresh(workflow)
     return _to_response(workflow)
+
+
+@router.get("/dashboard/summary")
+async def dashboard_summary(
+    workspace_id: str | None = None,
+    db: AsyncSession = Depends(get_db),
+    user: Annotated[User, Depends(get_current_user)] = ...,
+):
+    """Get workflow list enriched with execution stats and cost data for the dashboard."""
+    query = select(Workflow).where(Workflow.is_active == True)
+    if workspace_id:
+        query = query.where(Workflow.workspace_id == workspace_id)
+    result = await db.execute(query.order_by(Workflow.updated_at.desc()))
+    workflows = result.scalars().all()
+
+    wf_ids = [w.id for w in workflows]
+    if not wf_ids:
+        return {"workflows": []}
+
+    # Execution stats per workflow
+    exec_stats = await db.execute(
+        select(
+            Execution.workflow_id,
+            func.count(Execution.id).label("total_runs"),
+            func.max(Execution.created_at).label("last_run_at"),
+        )
+        .where(Execution.workflow_id.in_(wf_ids))
+        .group_by(Execution.workflow_id)
+    )
+    exec_map = {row.workflow_id: {"total_runs": row.total_runs, "last_run_at": str(row.last_run_at)} for row in exec_stats.all()}
+
+    # Last execution status per workflow
+    last_status_result = await db.execute(
+        select(Execution.workflow_id, Execution.status)
+        .where(Execution.workflow_id.in_(wf_ids))
+        .order_by(Execution.created_at.desc())
+    )
+    last_status_map: dict[str, str] = {}
+    for row in last_status_result.all():
+        if row.workflow_id not in last_status_map:
+            last_status_map[row.workflow_id] = row.status
+
+    # Cost per workflow
+    cost_stats = await db.execute(
+        select(CostRecord.workflow_id, func.sum(CostRecord.cost_usd).label("total_cost"))
+        .where(CostRecord.workflow_id.in_(wf_ids))
+        .group_by(CostRecord.workflow_id)
+    )
+    cost_map = {row.workflow_id: round(row.total_cost, 4) for row in cost_stats.all()}
+
+    return {
+        "workflows": [
+            {
+                **_to_response(w).model_dump(),
+                "execution_count": exec_map.get(w.id, {}).get("total_runs", 0),
+                "last_run_at": exec_map.get(w.id, {}).get("last_run_at"),
+                "last_execution_status": last_status_map.get(w.id),
+                "total_cost_usd": cost_map.get(w.id, 0.0),
+            }
+            for w in workflows
+        ]
+    }

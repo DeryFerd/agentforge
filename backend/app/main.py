@@ -131,6 +131,18 @@ async def lifespan(app: FastAPI):
     # Start WebSocket relay (Redis pub/sub)
     await ws_manager.start_relay()
 
+    # Seed built-in templates and MCP servers (idempotent — runs once)
+    from app.core.database import async_session_factory
+    from app.core.seed_templates import seed_templates
+    from app.core.seed_mcp_servers import seed_mcp_servers
+    try:
+        async with async_session_factory() as seed_db:
+            await seed_templates(seed_db)
+            await seed_mcp_servers(seed_db)
+            await seed_db.commit()
+    except Exception as e:
+        logger.warning("Seed data initialization failed (non-fatal)", error=str(e))
+
     # Start execution worker (picks up jobs from Redis queue)
     # Lazy import to avoid blocking app startup with heavy engine deps
     async def _start_worker():

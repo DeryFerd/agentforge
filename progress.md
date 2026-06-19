@@ -77,6 +77,16 @@
 | Workflows stay in "queued" status forever | Execution worker was a separate process that was never started | Embedded worker as asyncio task in FastAPI lifespan with lazy import; worker starts automatically with backend |
 | LLM calls fail with "OPENAI_API_KEY not configured" | No LLM provider configured in `.env` | Added `OPENAI_BASE_URL` config for OpenAI-compatible APIs; integrated Ollama Cloud (`https://ollama.com/v1`) |
 
+## Platform Completeness Sprint (June 19)
+
+| Issue | Root Cause | Fix |
+|---|---|---|
+| Templates page is empty | No seed data in `agent_templates` table | Created `seed_templates.py` with 8 starter templates (Summarizer, Code Reviewer, Data Extractor, Sentiment Analyzer, Q&A Agent, Content Writer, Translation Agent, Research Assistant); seeded on startup via lifespan |
+| MCP Servers page is empty | No servers registered in `mcp_servers` table | Created `seed_mcp_servers.py` with 3 built-in servers (filesystem, web-search, postgres); seeded on startup |
+| Cost dashboard shows $0.00 | Ollama Cloud models had $0 pricing | Updated MODEL_PRICING with realistic Ollama Cloud rates ($0.50–$4.50/1M tokens); costs now flow through execution → CostRecord → dashboard |
+| Dashboard workflow cards lack execution data | List endpoint only returns workflow metadata | Added `/workflows/dashboard/summary` endpoint with execution count, last run status, total cost per workflow; enhanced frontend cards with stats display |
+| Dashboard stats cards show static data | No aggregation queries | Computed totalExecutions and totalCost from summary endpoint; wired to stats cards |
+
 ---
 
 ## Changelog
@@ -91,4 +101,5 @@
 | June 15 2026 | Live Debug | langfuse v4, setuptools, bcrypt, auth 401, Docker + migrations + full stack verified |
 | June 15 2026 | E2E Bug Fixes | 4 critical E2E bugs fixed: React Flow state sync, auto-create workspace, URL sync after save, dag_json in API response |
 | June 16 2026 | UI Bug Fixes | Save isDirty fix, auth redirect guard, full dark mode across all pages/components, dark mode toggle fix |
-| June 18 2026 | **UX Polish + Execution** | **Per-type node numbering, left/right handles, unsaved warning, execution worker embedded in lifespan, Ollama Cloud LLM integration** |
+| June 18 2026 | UX Polish + Execution | Per-type node numbering, left/right handles, unsaved warning, execution worker embedded in lifespan, Ollama Cloud LLM integration |
+| June 19 2026 | **Platform Completeness** | **8 seed templates, 3 seed MCP servers, cost tracking wired end-to-end, dashboard summary endpoint with execution stats** |
