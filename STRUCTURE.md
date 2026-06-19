@@ -609,3 +609,16 @@ users ─────────┬──→ workspaces (owner_id)
 | `redis` | `redis:7-alpine` | 6379 | — | Task queue + HITL polling store + pub/sub relay |
 | `minio` | `minio/minio:latest` | 9000, 9001 | — | S3-compatible file storage |
 | `langfuse` | `langfuse/langfuse:2` | 3001 | postgres | LLM observability dashboard |
+
+### Langfuse Setup (local dev)
+
+1. Create the `langfuse` database: `docker exec agentforge-postgres-1 psql -U agentforge -c "CREATE DATABASE langfuse;"`
+2. Start the container: `docker compose up -d langfuse`
+3. Open `http://localhost:3001` → Sign up → Create project → Copy API keys
+4. Add keys to `backend/.env`:
+   ```
+   LANGFUSE_PUBLIC_KEY=pk-lf-...
+   LANGFUSE_SECRET_KEY=sk-lf-...
+   LANGFUSE_HOST=http://localhost:3001
+   ```
+5. Restart backend — traces will appear in Langfuse after workflow executions
