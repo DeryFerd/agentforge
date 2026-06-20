@@ -3,6 +3,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import { Package, Search, Download, Star, Filter, GitBranch } from "lucide-react";
 import api from "@/lib/api";
 
@@ -19,6 +20,7 @@ interface Template {
 const CATEGORIES = ["all", "general", "classification", "extraction", "analysis", "content", "development", "qa", "quality", "research"];
 
 export default function TemplatesPage() {
+  const router = useRouter();
   const [templates, setTemplates] = useState<Template[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
@@ -46,8 +48,13 @@ export default function TemplatesPage() {
   };
 
   const handleInstall = async (template: Template) => {
-    alert(`Template "${template.name}" installed! It will appear in your workflow editor's node toolbar.`);
-    // In production: POST /templates/{id}/install which creates a workflow from template
+    try {
+      const response = await api.post(`/templates/${template.id}/install`);
+      const { workflow_id } = response.data;
+      router.push(`/editor?id=${workflow_id}`);
+    } catch (err) {
+      alert("Failed to install template. Make sure you have a workspace.");
+    }
   };
 
   const categoryColor: Record<string, string> = {
