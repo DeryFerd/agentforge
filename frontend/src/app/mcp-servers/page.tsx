@@ -1,4 +1,4 @@
-﻿/** MCP Server management page â€” register, test, and manage MCP servers. */
+/** MCP Server management page â€” register, test, and manage MCP servers. */
 
 "use client";
 
@@ -46,8 +46,8 @@ export default function MCPServersPage() {
     try {
       const response = await api.get(`/mcp-servers?workspace_id=${workspaceId}`);
       setServers(response.data);
-    } catch {
-      console.error("Failed to fetch MCP servers");
+    } catch (err) {
+      console.error("Failed to fetch MCP servers:", err);
     } finally {
       setLoading(false);
     }
