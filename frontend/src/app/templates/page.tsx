@@ -51,7 +51,7 @@ export default function TemplatesPage() {
     try {
       const response = await api.post(`/templates/${template.id}/install`);
       const { workflow_id } = response.data;
-      router.push(`/editor?id=${workflow_id}`);
+      router.push(`/editor?id=${workflow_id}&from_template=true`);
     } catch (err) {
       alert("Failed to install template. Make sure you have a workspace.");
     }

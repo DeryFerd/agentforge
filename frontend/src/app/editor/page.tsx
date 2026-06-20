@@ -7,7 +7,7 @@ import { useSearchParams, useRouter } from "next/navigation";
 import dynamic from "next/dynamic";
 import { useWorkflowStore } from "@/stores/workflow-store";
 import { Play, Save, CheckCircle, XCircle, AlertTriangle, Trash2, Loader2, Pencil } from "lucide-react";
-import { executionApi } from "@/lib/api";
+import { executionApi, workflowApi } from "@/lib/api";
 import DarkModeToggle from "@/components/DarkModeToggle";
 
 // Load DAGCanvas client-side only (React Flow needs DOM)
@@ -43,6 +43,8 @@ function EditorContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const urlWorkflowId = searchParams.get("id");
+  const fromTemplate = searchParams.get("from_template") === "true";
+  const setDirty = useWorkflowStore((s) => s.setDirty);
 
   const {
     workflowId: storeWorkflowId,
@@ -68,9 +70,14 @@ function EditorContent() {
   // Load workflow from URL param on mount
   useEffect(() => {
     if (urlWorkflowId) {
-      loadWorkflow(urlWorkflowId);
+      loadWorkflow(urlWorkflowId).then(() => {
+        // If opened from template install, mark as unsaved so user gets warning on back
+        if (fromTemplate) {
+          setDirty(true);
+        }
+      });
     }
-  }, [urlWorkflowId, loadWorkflow]);
+  }, [urlWorkflowId, loadWorkflow, fromTemplate, setDirty]);
 
   // After first save, update URL with the new workflow ID
   useEffect(() => {
@@ -113,12 +120,21 @@ function EditorContent() {
   }, []);
 
   // Back button with unsaved changes warning
-  const handleBack = () => {
+  const handleBack = async () => {
     if (isDirty) {
       const confirmed = window.confirm(
         "You have unsaved changes. Are you sure you want to leave?"
       );
       if (!confirmed) return;
+
+      // If this was a template install that was never saved, delete it
+      if (fromTemplate && storeWorkflowId) {
+        try {
+          await workflowApi.delete(storeWorkflowId);
+        } catch {
+          // Ignore delete errors
+        }
+      }
     }
     router.push("/");
   };

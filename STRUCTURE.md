@@ -307,7 +307,7 @@ docker compose down -v
 | `workspaces.py` | `/workspaces` | CRUD + member invite/list | `workspace.*` | `deps.py`, `database.py` |
 | `workflows.py` | `/workflows` | CRUD + validate + export + import + **dashboard/summary** (execution stats + costs per workflow) | `workflow.*`, `execution.*`, `misc.CostRecord` | `deps.py`, `database.py`, `validator.py`, `security_middleware.py` |
 | `executions.py` | `/executions` | trigger, list, get, trace, cancel | `execution.*`, `workflow.*` | `deps.py`, `database.py`, Redis |
-| `templates.py` | `/templates` | CRUD + search | `misc.AgentTemplate` | `deps.py`, `database.py` |
+| `templates.py` | `/templates` | CRUD + search + **install** (creates workflow from template DAG) | `misc.AgentTemplate`, `workflow.Workflow`, `workspace.Workspace` | `deps.py`, `database.py` |
 | `mcp_servers.py` | `/mcp-servers` | register, list, delete, health | `misc.MCPServer` | `deps.py`, `database.py` |
 | `costs.py` | `/costs` | dashboard, per-workflow, per-execution | `misc.CostRecord` | `deps.py`, `database.py` |
 | `webhooks.py` | `/webhooks` | CRUD + trigger | `misc.WebhookTrigger` | `deps.py`, `database.py` |

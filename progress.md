@@ -86,6 +86,9 @@
 | Cost dashboard shows $0.00 | Ollama Cloud models had $0 pricing | Updated MODEL_PRICING with realistic Ollama Cloud rates ($0.50–$4.50/1M tokens); costs now flow through execution → CostRecord → dashboard |
 | Dashboard workflow cards lack execution data | List endpoint only returns workflow metadata | Added `/workflows/dashboard/summary` endpoint with execution count, last run status, total cost per workflow; enhanced frontend cards with stats display |
 | Dashboard stats cards show static data | No aggregation queries | Computed totalExecutions and totalCost from summary endpoint; wired to stats cards |
+| Template "Install" button does nothing | `handleInstall` was a fake `alert()` with no API call | Added `POST /templates/{id}/install` endpoint that creates a workflow with Input → Agent (template config) → Output DAG; frontend calls API and redirects to editor |
+| Template workflow persists after "Leave" | Install creates workflow in DB; clicking "Leave" only navigates away | Added `from_template` URL flag; editor marks as dirty on load; `handleBack` deletes workflow if user leaves without saving |
+| Langfuse not running | Container not started, no DB, no API keys | Created `langfuse` DB, started container, configured `LANGFUSE_PUBLIC_KEY`/`SECRET_KEY` in `.env`; added setup guide to STRUCTURE.md |
 
 ---
 
@@ -102,4 +105,4 @@
 | June 15 2026 | E2E Bug Fixes | 4 critical E2E bugs fixed: React Flow state sync, auto-create workspace, URL sync after save, dag_json in API response |
 | June 16 2026 | UI Bug Fixes | Save isDirty fix, auth redirect guard, full dark mode across all pages/components, dark mode toggle fix |
 | June 18 2026 | UX Polish + Execution | Per-type node numbering, left/right handles, unsaved warning, execution worker embedded in lifespan, Ollama Cloud LLM integration |
-| June 19 2026 | **Platform Completeness** | **8 seed templates, 3 seed MCP servers, cost tracking wired end-to-end, dashboard summary endpoint with execution stats** |
+| June 19 2026 | **Platform Completeness** | **8 seed templates, 3 seed MCP servers, cost tracking, dashboard summary, template install flow, Langfuse observability** |
