@@ -43,42 +43,41 @@ export default function RootLayout({
               (function() {
                 var isLoginPage = window.location.pathname === '/login';
                 if (!isLoginPage) {
-                  // Check cookie for access_token (same as middleware)
                   var hasToken = document.cookie.split(';').some(function(c) {
                     return c.trim().indexOf('access_token=') === 0 && c.trim() !== 'access_token=';
                   });
                   if (!hasToken) {
-                    // Add style to hide body before it paints
                     var s = document.createElement('style');
                     s.id = '__auth_hide';
                     s.textContent = 'body{display:none!important}';
                     document.head.appendChild(s);
-                    // Redirect immediately
                     window.location.replace('/login');
                     return;
                   }
                 }
               })();
-
-              // Dark mode: apply .dark class to body before paint
+            `,
+          }}
+        />
+      </head>
+      <body className="min-h-full flex flex-col bg-white dark:bg-gray-950 text-gray-900 dark:text-gray-100 transition-colors" suppressHydrationWarning>
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `
+              // Dark mode: apply .dark class to body (runs after body exists)
               try {
                 if (localStorage.theme === 'dark' || (!('theme' in localStorage) && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
                   document.body.classList.add('dark');
                 }
               } catch (_) {}
 
-              // Bfcache fix: if page is restored from Chrome's back-forward cache,
-              // reload to ensure middleware auth check runs (prevents stale HTML flash)
+              // Bfcache fix
               window.addEventListener('pageshow', function(event) {
-                if (event.persisted) {
-                  window.location.reload();
-                }
+                if (event.persisted) { window.location.reload(); }
               });
             `,
           }}
         />
-      </head>
-      <body className="min-h-full flex flex-col bg-white dark:bg-gray-950 text-gray-900 dark:text-gray-100 transition-colors">
         <ErrorBoundaryWrapper>{children}</ErrorBoundaryWrapper>
       </body>
     </html>
