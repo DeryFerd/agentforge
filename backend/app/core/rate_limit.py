@@ -26,8 +26,10 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
         self._requests: dict[str, list[float]] = defaultdict(list)
 
     async def dispatch(self, request: Request, call_next: RequestResponseEndpoint) -> Response:
-        # Skip rate limiting for health checks
+        # Skip rate limiting for health checks and MCP health endpoints
         if request.url.path in ("/health", "/docs", "/redoc", "/openapi.json"):
+            return await call_next(request)
+        if "/health" in request.url.path and request.method == "GET":
             return await call_next(request)
 
         # Get client identifier

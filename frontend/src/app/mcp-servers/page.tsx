@@ -94,6 +94,8 @@ export default function MCPServersPage() {
   const checkAll = async () => {
     for (const s of servers) {
       await handleHealthCheck(s.id);
+      // Small delay between checks to avoid rate limiting
+      await new Promise((r) => setTimeout(r, 300));
     }
   };
 

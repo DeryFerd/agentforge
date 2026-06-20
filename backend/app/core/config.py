@@ -63,7 +63,7 @@ class Settings(BaseSettings):
     cors_origins: list[str] = ["http://localhost:3000", "http://localhost:3001"]
 
     # --- Rate Limiting ---
-    rate_limit_per_minute: int = 60
+    rate_limit_per_minute: int = 300
 
 
 @lru_cache
