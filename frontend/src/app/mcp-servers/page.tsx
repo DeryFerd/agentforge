@@ -1,10 +1,10 @@
-/** MCP Server management page â€” register, test, and manage MCP servers. */
+/** MCP Server management page - register, test, and manage MCP servers. */
 
 "use client";
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { Server, Plus, Trash2, RefreshCw, CheckCircle, XCircle, AlertCircle, Terminal, Globe } from "lucide-react";
+import { Server, Plus, Trash2, RefreshCw, CheckCircle, XCircle, AlertCircle, Terminal, Globe, ArrowLeft } from "lucide-react";
 import api from "@/lib/api";
 
 interface MCPServer {
@@ -82,7 +82,6 @@ export default function MCPServersPage() {
     try {
       const response = await api.get(`/mcp-servers/${id}/health`);
       setHealthDetails((prev) => ({ ...prev, [id]: response.data.detail || "" }));
-      // Refresh server list to get updated health_status
       fetchServers();
     } catch {
       setHealthDetails((prev) => ({ ...prev, [id]: "Health check failed" }));
@@ -94,7 +93,6 @@ export default function MCPServersPage() {
   const checkAll = async () => {
     for (const s of servers) {
       await handleHealthCheck(s.id);
-      // Small delay between checks to avoid rate limiting
       await new Promise((r) => setTimeout(r, 300));
     }
   };
@@ -104,7 +102,9 @@ export default function MCPServersPage() {
       <header className="bg-white dark:bg-gray-900 border-b dark:border-gray-800">
         <div className="max-w-5xl mx-auto px-6 py-4 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <a href="/" className="text-sm text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200">â† Dashboard</a>
+            <a href="/" className="text-sm text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 flex items-center gap-1">
+              <ArrowLeft size={14} /> Dashboard
+            </a>
             <div className="w-8 h-8 bg-purple-600 rounded-lg flex items-center justify-center">
               <Server size={18} className="text-white" />
             </div>
