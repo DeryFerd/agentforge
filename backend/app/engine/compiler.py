@@ -139,26 +139,41 @@ class WorkflowCompiler:
         return node_fn
 
     def _make_router_fn(self, source_id: str, config: dict):
-        """Create a routing function for router nodes."""
+        """Create a routing function for router nodes.
+        
+        The router executor evaluates conditions and stores the selected route
+        in node_results[source_id]["output"]["selected_route"]. This function
+        reads that output and routes to the corresponding target node.
+        """
+        conditions = config.get("conditions", [])
+        
+        # Build mapping from condition names to target node IDs
+        edge_targets = [e["target"] for e in self.edges if e["source"] == source_id]
+        
+        # Map condition names to targets
+        name_to_target = {}
+        for condition in conditions:
+            name = condition.get("name", "")
+            target = condition.get("target", name)
+            if name:
+                name_to_target[name] = target
+        
         def router_fn(state: WorkflowState) -> str:
-            routing_mode = config.get("routing_mode", "conditional")
-            conditions = config.get("conditions", [])
-
-            if routing_mode == "conditional":
-                # Evaluate conditions against upstream outputs
-                upstream = state.get("node_results", {})
-                for condition in conditions:
-                    # Simple expression evaluation for MVP
-                    # Full implementation would use a safe expression evaluator
-                    target = condition.get("target", "")
-                    if target:
-                        return target
-
+            # Get the router node's output from state
+            node_results = state.get("node_results", {})
+            router_output = node_results.get(source_id, {}).get("output", {})
+            selected_route = router_output.get("selected_route")
+            
+            if selected_route:
+                # Map the selected route name to a target node ID
+                target = name_to_target.get(selected_route, selected_route)
+                if target in edge_targets:
+                    return target
+            
             # Default: first outgoing edge
-            for edge in self.edges:
-                if edge["source"] == source_id:
-                    return edge["target"]
-
+            if edge_targets:
+                return edge_targets[0]
+            
             return END
 
         return router_fn

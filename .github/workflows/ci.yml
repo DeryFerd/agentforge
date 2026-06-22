@@ -87,3 +87,77 @@ jobs:
         run: npm run build
         env:
           NEXT_PUBLIC_API_URL: http://localhost:8000
+
+  e2e:
+    name: E2E — Playwright Tests
+    runs-on: ubuntu-latest
+    needs: [backend, frontend]
+    defaults:
+      run:
+        working-directory: frontend
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Start services with Docker Compose
+        run: |
+          docker compose up -d postgres redis
+          # Wait for services to be healthy
+          timeout 60 bash -c 'until docker compose exec -T postgres pg_isready; do sleep 2; done'
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install backend dependencies and start
+        working-directory: backend
+        run: |
+          pip install -e .
+          # Run database migrations
+          alembic upgrade head || true
+          # Start backend in background
+          nohup uvicorn app.main:app --host 0.0.0.0 --port 8000 &
+          # Wait for backend to be ready
+          timeout 30 bash -c 'until curl -s http://localhost:8000/health > /dev/null; do sleep 2; done'
+        env:
+          DATABASE_URL: postgresql+asyncpg://agentforge:agentforge@localhost:5432/agentforge
+          JWT_SECRET_KEY: test-secret-key
+
+      - name: Set up Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install frontend dependencies
+        run: npm ci
+
+      - name: Install Playwright browsers
+        run: npx playwright install --with-deps chromium
+
+      - name: Start frontend and run E2E tests
+        run: |
+          npm run dev &
+          # Wait for frontend to be ready
+          timeout 60 bash -c 'until curl -s http://localhost:3000 > /dev/null; do sleep 2; done'
+          # Run Playwright tests
+          npx playwright test
+        env:
+          NEXT_PUBLIC_API_URL: http://localhost:8000
+
+      - name: Upload Playwright report
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: playwright-report
+          path: frontend/playwright-report/
+          retention-days: 7
+
+      - name: Cleanup Docker
+        if: always()
+        run: docker compose down -v

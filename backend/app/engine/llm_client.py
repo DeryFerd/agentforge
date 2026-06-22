@@ -1,18 +1,37 @@
 """Unified LLM provider client — wraps OpenAI, Anthropic, and Google."""
 
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Any
 
 import structlog
+import yaml
 from langchain_anthropic import ChatAnthropic
 from langchain_core.messages import HumanMessage, SystemMessage
 from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain_openai import ChatOpenAI
+from tenacity import retry, stop_after_attempt, wait_exponential, retry_if_exception_type
 
 from app.core.config import get_settings
 
 logger = structlog.get_logger()
 settings = get_settings()
+
+
+def _load_model_picing() -> dict[str, tuple[float, float]]:
+    """Load model pricing from YAML config file."""
+    pricing_file = Path(__file__).parent / "model_pricing.yaml"
+    try:
+        with open(pricing_file) as f:
+            data = yaml.safe_load(f)
+        return {model: tuple(prices) for model, prices in data.get("models", {}).items()}
+    except Exception as e:
+        logger.warning("Failed to load model pricing config", error=str(e))
+        return {}
+
+
+# Pricing per 1M tokens (input, output) in USD — loaded from model_pricing.yaml
+MODEL_PRICING: dict[str, tuple[float, float]] = _load_model_picing()
 
 
 @dataclass
@@ -21,27 +40,6 @@ class LLMResponse:
 
     content: str
     usage: dict[str, Any]  # input_tokens, output_tokens, cost
-
-
-# Pricing per 1M tokens (input, output) in USD — updated June 2026
-MODEL_PRICING: dict[str, tuple[float, float]] = {
-    "gpt-4o": (2.50, 10.00),
-    "gpt-4o-mini": (0.15, 0.60),
-    "gpt-4.1": (2.00, 8.00),
-    "gpt-4.1-mini": (0.40, 1.60),
-    "gpt-4.1-nano": (0.10, 0.40),
-    "gpt-oss:20b-cloud": (0.50, 1.50),
-    "gpt-oss:120b-cloud": (1.00, 3.00),
-    "qwen3-coder:480b-cloud": (1.50, 4.50),
-    "deepseek-v3.1:671b-cloud": (1.20, 3.60),
-    "o3-mini": (1.10, 4.40),
-    "claude-sonnet-4-20250514": (3.00, 15.00),
-    "claude-3-5-sonnet-20241022": (3.00, 15.00),
-    "claude-3-5-haiku-20241022": (0.80, 4.00),
-    "gemini-2.0-flash": (0.10, 0.40),
-    "gemini-2.5-pro": (1.25, 10.00),
-    "gemini-2.5-flash": (0.15, 0.60),
-}
 
 
 def _calculate_cost(model: str, input_tokens: int, output_tokens: int) -> float:
@@ -93,6 +91,17 @@ def _get_chat_model(provider: str, model_id: str, temperature: float = 0.3) -> A
         raise ValueError(f"Unknown LLM provider: {provider}")
 
 
+class LLMTransientError(Exception):
+    """Transient LLM error that should be retried (rate limit, server error)."""
+    pass
+
+
+@retry(
+    stop=stop_after_attempt(3),
+    wait=wait_exponential(multiplier=1, min=2, max=8),
+    retry=retry_if_exception_type(LLMTransientError),
+    reraise=True,
+)
 async def call_llm(
     provider: str,
     model_id: str,
@@ -101,6 +110,9 @@ async def call_llm(
     temperature: float = 0.3,
 ) -> LLMResponse:
     """Call an LLM and return a standardized LLMResponse.
+
+    Retries up to 3 times with exponential backoff on transient errors
+    (rate limits, server errors). Configuration errors propagate immediately.
 
     Args:
         provider: "openai" | "anthropic" | "google"
@@ -140,7 +152,21 @@ async def call_llm(
         )
 
     except ValueError:
-        raise  # Config errors should propagate
+        raise  # Config errors should propagate immediately
     except Exception as e:
-        logger.error("LLM call failed", provider=provider, model=model_id, error=str(e))
-        raise
+        error_str = str(e).lower()
+        # Check if this is a transient error (rate limit, server error, timeout)
+        is_transient = any(keyword in error_str for keyword in [
+            "rate limit", "429", "500", "502", "503", "504", "timeout", "overloaded"
+        ])
+        if is_transient:
+            logger.warning(
+                "LLM transient error, will retry",
+                provider=provider,
+                model=model_id,
+                error=str(e),
+            )
+            raise LLMTransientError(str(e)) from e
+        else:
+            logger.error("LLM call failed", provider=provider, model=model_id, error=str(e))
+            raise

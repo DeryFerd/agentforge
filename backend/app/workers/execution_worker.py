@@ -36,6 +36,17 @@ settings = get_settings()
 # Graceful shutdown flag
 _shutdown_event = asyncio.Event()
 
+# Shared Redis client for WebSocket event emission (avoids connection churn)
+_shared_redis_client: redis.Redis | None = None
+
+
+async def _get_shared_redis() -> redis.Redis:
+    """Get or create the shared Redis client for event emission."""
+    global _shared_redis_client
+    if _shared_redis_client is None:
+        _shared_redis_client = redis.from_url(settings.redis_url, decode_responses=True)
+    return _shared_redis_client
+
 
 def _handle_signal(signum, frame):
     logger.info("Shutdown signal received", signal=signum)
@@ -238,14 +249,12 @@ async def execute_workflow(execution_id: str) -> None:
 async def _emit_ws_event(run_id: str, event: dict) -> None:
     """Publish a WebSocket event via Redis pub/sub.
 
-    The API server subscribes to these events and forwards them
-    to connected WebSocket clients.
+    Uses a shared Redis client to avoid connection churn.
     """
     try:
-        redis_client = redis.from_url(settings.redis_url, decode_responses=True)
+        redis_client = await _get_shared_redis()
         channel = f"agentforge:ws:{run_id}"
         await redis_client.publish(channel, json.dumps(event, default=str))
-        await redis_client.aclose()
     except Exception as e:
         logger.debug("Failed to emit WS event", error=str(e), run_id=run_id)
 
@@ -256,8 +265,11 @@ async def worker_loop() -> None:
     Can be run standalone (python -m app.workers.execution_worker) or embedded
     in FastAPI's lifespan as an asyncio task.
     """
+    global _shared_redis_client
     logger.info("Execution worker started")
-    redis_client = redis.from_url(settings.redis_url, decode_responses=True)
+    
+    # Use shared Redis client for both polling and event emission
+    redis_client = await _get_shared_redis()
 
     try:
         while not _shutdown_event.is_set():
@@ -274,7 +286,10 @@ async def worker_loop() -> None:
                 logger.error("Worker loop error", error=str(e))
                 await asyncio.sleep(5)
     finally:
-        await redis_client.aclose()
+        # Clean up shared Redis client
+        if _shared_redis_client:
+            await _shared_redis_client.aclose()
+            _shared_redis_client = None
         logger.info("Execution worker shut down gracefully")
 
 

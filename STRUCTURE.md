@@ -1,7 +1,7 @@
 # AgentForge — Architecture & File Structure
 
 > Complete map of the codebase: every file, its purpose, and how it connects to others.
-> Last updated: June 15, 2026 (live debug session)
+> Last updated: June 11, 2026 (Roast Review V2 fixes — WebSocket error boundary, compiler router, LLM retry)
 
 ---
 
@@ -402,6 +402,13 @@ docker compose down -v
 | `ErrorBoundaryWrapper.tsx` | Server-component wrapper for ErrorBoundary | `layout.tsx` |
 | `DarkModeToggle.tsx` | Sun/Moon toggle with localStorage persistence | Header (any page) |
 
+#### Execution Components — `frontend/src/components/execution/`
+
+| File | Purpose | Used By |
+|---|---|---|
+| `WebSocketStatus.tsx` | **WebSocket error boundary — connection status indicator with auto-reconnect feedback, dismissible banner after 2s disconnection, retry button after 5 failed attempts** | `ExecutionMonitor.tsx` |
+| `ExecutionMonitor.tsx` | **Real-time execution monitoring panel — shows WebSocket status + last event display** | **Pages with live execution monitoring** |
+
 #### DAG Components — `frontend/src/components/dag/`
 
 | File | Purpose | Used By |
@@ -418,7 +425,7 @@ docker compose down -v
 |---|---|---|
 | `api.ts` | Axios client with JWT interceptors + 401 redirect to `/login`. Exports: `authApi`, `workflowApi`, `executionApi`, `workspaceApi` | All pages, `workflow-store.ts` |
 | `types.ts` | TypeScript interfaces: `User`, `Workspace`, `Workflow`, `DAGNode`, `DAGEdge`, `Execution`, `ValidationResult`, `TokenResponse` | All pages, store, API client |
-| `useExecutionWebSocket.ts` | React hook — WebSocket connection, auto-reconnect, ping/pong, HITL approval sender | `editor/page.tsx`, `executions/page.tsx` |
+| `useExecutionWebSocket.ts` | React hook — WebSocket connection, auto-reconnect, ping/pong, HITL approval sender, **reconnect attempt tracking** | `editor/page.tsx`, `executions/page.tsx`, **`ExecutionMonitor.tsx`** |
 
 #### State — `frontend/src/stores/`
 

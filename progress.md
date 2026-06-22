@@ -106,3 +106,47 @@
 | June 16 2026 | UI Bug Fixes | Save isDirty fix, auth redirect guard, full dark mode across all pages/components, dark mode toggle fix |
 | June 18 2026 | UX Polish + Execution | Per-type node numbering, left/right handles, unsaved warning, execution worker embedded in lifespan, Ollama Cloud LLM integration |
 | June 19 2026 | **Platform Completeness** | **8 seed templates, 3 seed MCP servers, cost tracking, dashboard summary, template install flow, Langfuse observability** |
+| June 11 2026 | **Roast Review V2 Fixes** | **11 production-ready improvements from comprehensive technical review** |
+
+---
+
+## Roast Review V2 Fixes (June 2026)
+
+### Critical Issues Fixed
+| Issue | Root Cause | Fix | Files Changed |
+|---|---|---|---|
+| Compiler router always takes first branch | `_make_router_fn` evaluates conditions locally, doesn't read executor output | Read `selected_route` from `node_results[source_id]["output"]` instead of dummy evaluation | `backend/app/engine/compiler.py` |
+| Redis connection churn in worker | `_emit_ws_event` creates new Redis client per WebSocket event | Added shared singleton Redis client with `_get_shared_redis()` | `backend/app/workers/execution_worker.py` |
+| LLM client fragile to transient errors | No retry logic — single 429 kills entire workflow | Added tenacity retry (3 attempts, exponential backoff 2s→4s→8s) | `backend/app/engine/llm_client.py`, `pyproject.toml` |
+| Context window overflow in prompts | Dumping entire upstream state into LLM prompts | Added 4000-char truncation with `_truncate_context()` helper | `backend/app/engine/executors.py` |
+
+### Major Issues Fixed
+| Issue | Impact | Fix | Files Changed |
+|---|---|---|---|
+| E2E tests not in CI pipeline | Playwright tests existed but never ran automatically | Added complete E2E job to `.github/workflows/ci.yml` | `.github/workflows/ci.yml` |
+| PostgreSQL testcontainer leak | Container never stopped after tests, orphaned processes | Added session-scoped cleanup fixture in `conftest.py` | `backend/tests/conftest.py` |
+| Model pricing hardcoded in Python dict | Would go stale quickly, hard to update | Moved to external YAML config file loaded dynamically | `backend/app/engine/model_pricing.yaml`, `llm_client.py` |
+| OAuth callback URL hardcoded to localhost | Would break on any non-local deployment | Made configurable via `settings.oauth_redirect_base_url` | `backend/app/api/v1/oauth.py`, `config.py` |
+| No WebSocket disconnection notification | Auto-reconnect exists but no user-facing feedback | Created `WebSocketStatus` component + `ExecutionMonitor` with reconnect tracking | `frontend/src/components/execution/WebSocketStatus.tsx`, `ExecutionMonitor.tsx`, `useExecutionWebSocket.ts` |
+
+### Deferred (Would Require Migration)
+| Issue | Decision |
+|---|---|
+| Agent memory model unused (dead code) | Left as-is — removing requires database migration |
+
+### Files Created
+- `backend/app/engine/model_pricing.yaml` — External model pricing configuration
+- `frontend/src/components/execution/WebSocketStatus.tsx` — WebSocket connection status indicator with error boundary
+- `frontend/src/components/execution/ExecutionMonitor.tsx` — Real-time execution monitoring panel
+
+### Files Modified
+- `backend/app/engine/compiler.py` — Fixed router to use executor output
+- `backend/app/workers/execution_worker.py` — Shared Redis client for WebSocket events
+- `backend/app/engine/llm_client.py` — Tenacity retry logic, YAML config loading
+- `backend/app/engine/executors.py` — Context truncation helper
+- `backend/app/api/v1/oauth.py` — Configurable OAuth redirect URLs
+- `backend/app/core/config.py` — Added `oauth_redirect_base_url` field
+- `backend/tests/conftest.py` — PostgreSQL container cleanup
+- `.github/workflows/ci.yml` — E2E test job
+- `backend/pyproject.toml` — Added tenacity dependency
+- `frontend/src/lib/useExecutionWebSocket.ts` — Added reconnectAttempts tracking

@@ -37,11 +37,14 @@ async def github_authorize_url():
     """Get the GitHub OAuth authorization URL."""
     if not settings.github_client_id:
         raise HTTPException(status_code=501, detail="GitHub OAuth not configured")
+    # Redirect URI is configurable for different deployment environments
+    redirect_uri = f"{settings.oauth_redirect_base_url}/auth/github/callback"
     url = (
         f"https://github.com/login/oauth/authorize"
         f"?client_id={settings.github_client_id}"
         f"&scope=user:email"
         f"&response_type=code"
+        f"&redirect_uri={redirect_uri}"
     )
     return {"url": url}
 
@@ -95,12 +98,14 @@ async def google_authorize_url():
     """Get the Google OAuth authorization URL."""
     if not settings.google_client_id:
         raise HTTPException(status_code=501, detail="Google OAuth not configured")
+    # Use postmessage for client-side OAuth flow, or configure redirect_uri for server-side
+    redirect_uri = f"{settings.oauth_redirect_base_url}/auth/google/callback"
     url = (
         f"https://accounts.google.com/o/oauth2/v2/auth"
         f"?client_id={settings.google_client_id}"
         f"&scope=openid%20email%20profile"
         f"&response_type=code"
-        f"&redirect_uri=postmessage"
+        f"&redirect_uri={redirect_uri}"
     )
     return {"url": url}
 
@@ -112,6 +117,7 @@ async def google_callback(body: OAuthCallbackRequest, db: AsyncSession = Depends
         raise HTTPException(status_code=501, detail="Google OAuth not configured")
 
     # Exchange code for tokens
+    redirect_uri = f"{settings.oauth_redirect_base_url}/auth/google/callback"
     async with httpx.AsyncClient() as client:
         token_resp = await client.post(
             "https://oauth2.googleapis.com/token",
@@ -120,7 +126,7 @@ async def google_callback(body: OAuthCallbackRequest, db: AsyncSession = Depends
                 "client_secret": settings.google_client_secret,
                 "code": body.code,
                 "grant_type": "authorization_code",
-                "redirect_uri": "postmessage",
+                "redirect_uri": redirect_uri,
             },
         )
         token_data = token_resp.json()

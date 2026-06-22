@@ -17,8 +17,13 @@ from app.core.database import Base, get_db
 from app.main import app
 
 
+# Module-level reference to the testcontainer for cleanup
+_pg_container = None
+
+
 def _get_test_database_url() -> str:
     """Get test database URL — prefer testcontainers PostgreSQL, fall back to SQLite."""
+    global _pg_container
     url = os.environ.get("TEST_DATABASE_URL")
     if url:
         return url
@@ -27,9 +32,9 @@ def _get_test_database_url() -> str:
     try:
         from testcontainers.postgres import PostgresContainer
 
-        pg = PostgresContainer("postgres:16-alpine")
-        pg.start()
-        url = pg.get_connection_url().replace("postgresql://", "postgresql+asyncpg://")
+        _pg_container = PostgresContainer("postgres:16-alpine")
+        _pg_container.start()
+        url = _pg_container.get_connection_url().replace("postgresql://", "postgresql+asyncpg://")
         # Store for reuse across test modules
         os.environ["TEST_DATABASE_URL"] = url
         return url
@@ -50,6 +55,18 @@ def event_loop():
     loop = asyncio.new_event_loop()
     yield loop
     loop.close()
+
+
+@pytest.fixture(scope="session", autouse=True)
+def cleanup_testcontainer():
+    """Ensure the PostgreSQL testcontainer is stopped after all tests complete."""
+    yield
+    global _pg_container
+    if _pg_container is not None:
+        try:
+            _pg_container.stop()
+        except Exception:
+            pass  # Best effort cleanup
 
 
 @pytest_asyncio.fixture(autouse=True)

@@ -4,6 +4,7 @@ All executors:
 - Emit OpenTelemetry spans for observability
 - Track token usage and costs
 - Support graceful error recovery
+- Truncate context to prevent token overflow
 """
 
 import abc
@@ -18,6 +19,27 @@ from app.engine.llm_client import call_llm
 from app.services.tracing import get_tracer, span_node_execution, span_llm_call, span_mcp_call
 
 logger = structlog.get_logger()
+
+# Maximum characters for upstream context per node (prevents token overflow)
+MAX_CONTEXT_CHARS = 4000
+
+
+def _truncate_context(data: Any, max_chars: int = MAX_CONTEXT_CHARS) -> str:
+    """Serialize and truncate context data to prevent token overflow.
+    
+    Args:
+        data: Data to serialize (dict, list, or any JSON-serializable object)
+        max_chars: Maximum character limit
+        
+    Returns:
+        Truncated JSON string with ellipsis if truncated
+    """
+    serialized = json.dumps(data, default=str)
+    if len(serialized) <= max_chars:
+        return serialized
+    # Truncate and add indicator
+    truncated = serialized[:max_chars]
+    return truncated + f'... [truncated, {len(serialized)} chars total]'
 
 
 class BaseNodeExecutor(abc.ABC):
@@ -102,12 +124,12 @@ class AgentNodeExecutor(BaseNodeExecutor):
             model_id = model_config.get("model_id", "gpt-4o-mini")
             temperature = model_config.get("temperature", 0.3)
 
-            # Build the user message from upstream + input
+            # Build the user message from upstream + input (with truncation)
             user_content_parts = []
             if input_data:
-                user_content_parts.append(f"Input: {json.dumps(input_data, default=str)}")
+                user_content_parts.append(f"Input: {_truncate_context(input_data)}")
             if upstream:
-                user_content_parts.append(f"Context from previous steps: {json.dumps(upstream, default=str)}")
+                user_content_parts.append(f"Context from previous steps: {_truncate_context(upstream)}")
 
             user_message = "\n".join(user_content_parts) if user_content_parts else "Please proceed with your task."
 

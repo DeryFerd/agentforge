@@ -21,6 +21,7 @@ interface UseWebSocketReturn {
   connected: boolean;
   events: ExecutionEvent[];
   lastEvent: ExecutionEvent | null;
+  reconnectAttempts: number;
   sendApproval: (nodeId: string, decision: "approved" | "rejected", feedback?: string) => void;
 }
 
@@ -34,11 +35,14 @@ export function useExecutionWebSocket({
   const [connected, setConnected] = useState(false);
   const [events, setEvents] = useState<ExecutionEvent[]>([]);
   const [lastEvent, setLastEvent] = useState<ExecutionEvent | null>(null);
+  const [reconnectAttempts, setReconnectAttempts] = useState(0);
   const wsRef = useRef<WebSocket | null>(null);
   const reconnectTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const connect = useCallback(() => {
     if (!runId) return;
+
+    setReconnectAttempts((prev) => (prev > 0 ? prev + 1 : 0));
 
     const ws = new WebSocket(`${WS_URL}/ws/executions/${runId}`);
     wsRef.current = ws;
@@ -99,5 +103,5 @@ export function useExecutionWebSocket({
     []
   );
 
-  return { connected, events, lastEvent, sendApproval };
+  return { connected, events, lastEvent, reconnectAttempts, sendApproval };
 }
